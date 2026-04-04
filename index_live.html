@@ -1,0 +1,2779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReadingBuddy Live — AI Voice Tutor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #4f46e5;
+    --primary-light: #ede9fe;
+    --accent: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --grey: #6b7280;
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --radius: 16px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+
+  #logo {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  #logo .live-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+    display: inline-block;
+    animation: blink 1.4s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  #back-link {
+    font-size: 0.82rem;
+    color: var(--primary);
+    text-decoration: none;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  #back-link:hover { background: var(--primary-light); }
+
+  select, .btn {
+    height: 40px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    padding: 0 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  select:focus, .btn:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-sm { height: 34px; font-size: 0.82rem; padding: 0 10px; border-radius: 8px; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #gear-btn { font-size: 1.3rem; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: background 0.15s; }
+  #gear-btn:hover { background: var(--primary-light); }
+
+  /* ── TAB BAR ── */
+  #tab-bar {
+    background: var(--card);
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    padding: 0 16px;
+    position: sticky;
+    top: 61px;
+    z-index: 99;
+  }
+
+  .tab-btn {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── MAIN ── */
+  #live-tab, #practice-tab { display: block; }
+  #practice-tab { display: none; }
+
+  #live-main {
+    flex: 1; padding: 16px; max-width: 700px; width: 100%; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+    gap: 8px;
+  }
+  .card-header:hover { background: var(--primary-light); }
+  .card-body { padding: 14px 16px; border-top: 1px solid var(--border); }
+  .collapse-icon { transition: transform 0.2s; font-size: 0.8rem; }
+  .collapsed .collapse-icon { transform: rotate(-90deg); }
+  .collapsed .card-body { display: none; }
+
+  /* ── COMPAT WARNING ── */
+  #compat-warning {
+    background: #fef3c7;
+    border: 1.5px solid #fcd34d;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: #92400e;
+    display: none;
+  }
+
+  /* ── CONNECTION STATUS BAR ── */
+  #conn-status-bar {
+    background: #1f2937;
+    color: #fff;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #conn-status-bar.visible { display: flex; }
+  #conn-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    animation: pulse-green 2s infinite;
+  }
+  @keyframes pulse-green {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    50%{ box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+  }
+
+  /* ── CHAPTER SECTION ── */
+  .chapter-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #chapter-status {
+    font-size: 0.87rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+  }
+  #chapter-status.loaded { color: var(--green); font-weight: 600; background: #d1fae5; }
+  #ocr-progress { margin-top: 8px; font-size: 0.85rem; color: var(--primary); font-weight: 600; }
+
+  #photo-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .thumb-wrap { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); }
+  .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: #fff; font-size: 0.65rem; text-align: center; padding: 2px 0; }
+  .thumb-del { position: absolute; top: 2px; right: 2px; background: rgba(239,68,68,0.85); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 0.65rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  /* ── MAIN CIRCLE AREA ── */
+  #circle-area {
+    text-align: center;
+    padding: 28px 16px 20px;
+  }
+
+  #state-circle {
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.2rem;
+    transition: background 0.4s, box-shadow 0.4s;
+    position: relative;
+    cursor: default;
+  }
+
+  /* CSS classes match the lowercase state names used in setCircleState */
+  #state-circle.disconnected { background: #f3f4f6; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  #state-circle.connecting   { background: #fef3c7; box-shadow: 0 4px 24px rgba(245,158,11,0.3); animation: pulse-spin 1.2s linear infinite; }
+  #state-circle.idle         { background: #d1fae5; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); animation: pulse-idle 2.5s infinite; }
+  #state-circle.student      { background: #fee2e2; box-shadow: 0 4px 24px rgba(239,68,68,0.3); animation: pulse-fast 0.7s infinite; }
+  #state-circle.model        { background: #ede9fe; box-shadow: 0 4px 24px rgba(79,70,229,0.3); animation: flow 2s ease-in-out infinite; }
+  #state-circle.photo        { background: #f3f4f6; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  #state-circle.error        { background: #fee2e2; box-shadow: 0 4px 20px rgba(239,68,68,0.25); }
+
+  @keyframes pulse-idle {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    50%    { box-shadow: 0 0 0 20px rgba(16,185,129,0); }
+  }
+  @keyframes pulse-fast {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+    50%    { box-shadow: 0 0 0 18px rgba(239,68,68,0); }
+  }
+  @keyframes flow {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(79,70,229,0.5); }
+    50%    { box-shadow: 0 0 0 22px rgba(79,70,229,0); }
+  }
+  @keyframes pulse-spin {
+    0%   { box-shadow: 4px 0 20px rgba(245,158,11,0.5); transform: rotate(0deg); }
+    100% { box-shadow: 4px 0 20px rgba(245,158,11,0.5); transform: rotate(360deg); }
+  }
+
+  #state-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+    min-height: 1.6rem;
+  }
+
+  /* ── SESSION BUTTONS ── */
+  #session-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+
+  #start-btn {
+    width: 200px; height: 56px;
+    font-size: 1rem; font-weight: 700;
+    border-radius: 28px;
+    background: var(--green);
+    color: #fff; border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(16,185,129,0.35);
+    transition: background 0.2s, transform 0.1s;
+  }
+  #start-btn:hover { background: #059669; transform: scale(1.02); }
+  #start-btn:disabled { background: var(--grey); box-shadow: none; cursor: not-allowed; transform: none; }
+
+  #end-btn {
+    height: 44px; padding: 0 20px;
+    background: var(--red); color: #fff; border: none;
+    border-radius: 22px; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; display: none;
+  }
+  #mute-btn {
+    height: 44px; padding: 0 20px;
+    background: var(--card); color: var(--text);
+    border: 1.5px solid var(--border);
+    border-radius: 22px; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; display: none;
+  }
+  #mute-btn.muted { background: #fef3c7; border-color: var(--accent); color: #92400e; }
+
+  #photo-ask-btn {
+    height: 40px; padding: 0 16px;
+    background: var(--card); color: var(--text);
+    border: 1.5px solid var(--border); border-radius: 20px;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    display: none; transition: border-color 0.2s;
+    align-items: center; gap: 6px;
+  }
+  #photo-ask-btn:hover { border-color: var(--primary); }
+  #photo-ask-btn.visible { display: inline-flex; }
+
+  /* ── PHOTO MODE BANNER ── */
+  #photo-banner {
+    background: #fef3c7;
+    border: 1.5px solid #fcd34d;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #92400e;
+    text-align: center;
+    display: none;
+  }
+
+  /* ── RECONNECT BTN ── */
+  #reconnect-btn {
+    display: none;
+    margin: 0 auto;
+    background: var(--primary); color: #fff; border: none;
+    border-radius: 10px; padding: 10px 22px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  }
+
+  /* ── TRANSCRIPT PANEL ── */
+  #transcript-panel {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  #transcript-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border);
+  }
+  #transcript-list {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tx-item { display: flex; flex-direction: column; gap: 4px; }
+  .tx-you {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 8px 12px;
+    border-radius: 12px 12px 4px 12px;
+    font-size: 0.88rem; font-weight: 600;
+    align-self: flex-end; max-width: 88%;
+  }
+  .tx-rb {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 4px 12px 12px 12px;
+    font-size: 0.88rem; line-height: 1.6;
+    max-width: 92%;
+  }
+  .tx-time { font-size: 0.7rem; color: var(--text-muted); align-self: flex-end; padding: 0 2px; }
+  #tx-empty { color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 20px 0; }
+
+  /* ── SETTINGS OVERLAY ── */
+  #settings-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+  }
+  #settings-overlay.open { display: block; }
+  #settings-panel {
+    position: fixed; top: 0; right: -340px;
+    width: 320px; height: 100%;
+    background: var(--card);
+    z-index: 201;
+    transition: right 0.3s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  #settings-panel.open { right: 0; }
+  #settings-header {
+    padding: 18px 16px 14px;
+    font-size: 1.1rem; font-weight: 800;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--card); z-index: 1;
+  }
+  #close-settings { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); }
+  .settings-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .settings-section h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 12px; font-weight: 700; }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field label { font-size: 0.85rem; font-weight: 600; }
+  .key-row { display: flex; gap: 6px; align-items: center; }
+  .key-row input {
+    flex: 1; height: 38px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 0 10px;
+    font-size: 0.85rem; font-family: monospace;
+  }
+  .key-row input:focus { outline: none; border-color: var(--primary); }
+  .eye-btn { background: none; border: 1.5px solid var(--border); border-radius: 8px; height: 38px; width: 36px; cursor: pointer; font-size: 1rem; }
+
+  /* ── CLASS MODAL ── */
+  #class-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(79,70,229,0.7);
+    z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  #class-modal-overlay.open { display: flex; }
+  #class-modal {
+    background: var(--card); border-radius: 20px;
+    padding: 28px 24px; max-width: 360px; width: 92%; text-align: center;
+  }
+  #class-modal h2 { font-size: 1.5rem; margin-bottom: 8px; color: var(--primary); }
+  #class-modal p { font-size: 0.92rem; color: var(--text-muted); margin-bottom: 20px; }
+  #class-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .class-opt {
+    padding: 12px 4px; border-radius: 10px; border: 2px solid var(--border);
+    cursor: pointer; font-size: 0.95rem; font-weight: 700; background: var(--bg);
+    transition: all 0.15s;
+  }
+  .class-opt:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .class-opt.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1f2937; color: #fff;
+    padding: 10px 22px; border-radius: 24px;
+    font-size: 0.9rem; font-weight: 600;
+    z-index: 500; transition: transform 0.3s;
+    pointer-events: none; max-width: 88vw; text-align: center;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.error { background: var(--red); }
+  #toast.success { background: var(--green); }
+
+  /* ══════════════════════════════════════
+     PRACTICE MODE  (.pm- prefix)
+     ══════════════════════════════════════ */
+  .pm-layout {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 16px; max-width: 960px; margin: 0 auto; width: 100%;
+  }
+  .pm-main-col { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .pm-card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow); padding: 18px;
+  }
+  .pm-card h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .pm-chapter-status { padding: 10px 14px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; background: #fef3c7; color: #92400e; margin-bottom: 14px; }
+  .pm-chapter-status.ok { background: #d1fae5; color: #065f46; }
+  .pm-upload-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pm-q-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .pm-extract-btn { width: 100%; margin-top: 10px; }
+  .pm-count-btn { width: 40px; height: 36px; border-radius: 8px; border: 2px solid var(--border); background: var(--bg); font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+  .pm-count-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .pm-count-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+  .pm-type-toggle { display: inline-flex; align-items: center; cursor: pointer; }
+  .pm-type-toggle input { display: none; }
+  .pm-type-toggle span { padding: 6px 12px; border-radius: 20px; border: 2px solid var(--border); background: var(--bg); font-size: 0.82rem; font-weight: 600; transition: all 0.15s; user-select: none; }
+  .pm-type-toggle input:checked + span { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .pm-type-toggle:hover span { border-color: var(--primary); }
+
+  #pm-session-view { display: none; }
+  #pm-setup-view   { display: block; }
+  #pm-passed-view  { display: none; }
+
+  .pm-question-card { background: var(--card); border-radius: var(--radius); border: 2px solid var(--primary); box-shadow: 0 4px 24px rgba(79,70,229,0.12); padding: 24px 20px 20px; text-align: center; }
+  .pm-cycle-badge { display: inline-block; background: var(--primary-light); color: var(--primary); font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 14px; }
+  .pm-question-text { font-size: 1.35rem; font-weight: 700; line-height: 1.5; margin-bottom: 20px; color: var(--text); }
+  .pm-sub-questions { text-align: left; margin: 0 auto 18px; max-width: 480px; display: flex; flex-direction: column; gap: 6px; }
+  .pm-sub-q { font-size: 0.92rem; background: var(--bg); border-radius: 8px; padding: 8px 12px; border-left: 3px solid var(--primary); }
+  .pm-mic-section { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .pm-mic-btn { width: 100px; height: 100px; border-radius: 50%; border: none; background: var(--grey); color: #fff; font-size: 2rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.18); touch-action: none; user-select: none; transition: background 0.2s; }
+  .pm-mic-btn.idle     { background: var(--grey); }
+  .pm-mic-btn.listening { background: var(--red); animation: pulse 1s infinite; }
+  .pm-mic-btn.thinking  { background: var(--accent); }
+  @keyframes pulse { 0%,100%{ box-shadow: 0 4px 18px rgba(239,68,68,0.4), 0 0 0 0 rgba(239,68,68,0.5); } 50%{ box-shadow: 0 4px 18px rgba(239,68,68,0.4), 0 0 0 16px rgba(239,68,68,0); } }
+  .pm-mic-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .pm-live-transcript { font-size: 0.95rem; color: var(--text-muted); font-style: italic; min-height: 1.4rem; text-align: center; }
+  .pm-session-actions { display: flex; gap: 10px; justify-content: center; }
+  .pm-skip-btn { background: none; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
+  .pm-skip-btn:hover { border-color: var(--grey); color: var(--text); background: var(--bg); }
+  .pm-text-answer-row { display: none; gap: 8px; margin-top: 10px; }
+  .pm-text-answer-row input { flex: 1; height: 42px; border: 1.5px solid var(--border); border-radius: 10px; padding: 0 12px; font-size: 0.9rem; }
+  .pm-text-answer-row input:focus { outline: none; border-color: var(--primary); }
+  .pm-result-card { background: var(--card); border-radius: var(--radius); border: 1.5px solid var(--border); padding: 18px; text-align: center; display: none; }
+  .pm-stars { font-size: 1.6rem; margin-bottom: 8px; letter-spacing: 2px; }
+  .pm-marks-text { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+  .pm-feedback-text { font-size: 0.92rem; line-height: 1.6; color: var(--text); margin-bottom: 10px; }
+  .pm-correct-answer { font-size: 0.88rem; background: #d1fae5; border-radius: 8px; padding: 10px 14px; color: #065f46; text-align: left; margin-top: 8px; display: none; }
+  .pm-hint-box { font-size: 0.88rem; background: #fef3c7; border-radius: 8px; padding: 10px 14px; color: #92400e; text-align: left; margin-top: 8px; display: none; }
+  .pm-cycle-summary { background: var(--card); border-radius: var(--radius); border: 1.5px solid var(--border); padding: 22px 18px; text-align: center; display: none; }
+  .pm-cycle-summary h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 16px; }
+  .pm-stat-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .pm-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pm-stat-num { font-size: 1.6rem; font-weight: 800; }
+  .pm-stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+  .pm-passed-screen { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: var(--radius); padding: 40px 24px; text-align: center; color: #fff; }
+  .pm-passed-screen h1 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
+  .pm-passed-screen p { font-size: 1rem; opacity: 0.85; margin-bottom: 24px; }
+  .pm-passed-stats { display: flex; justify-content: center; gap: 28px; margin-bottom: 30px; flex-wrap: wrap; }
+  .pm-passed-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pm-passed-stat-num { font-size: 2rem; font-weight: 900; }
+  .pm-passed-stat-label { font-size: 0.78rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.06em; }
+  .pm-passed-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .pm-passed-actions .btn { min-width: 160px; }
+  .pm-tracker { width: 220px; flex-shrink: 0; background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 14px; position: sticky; top: 110px; max-height: calc(100vh - 130px); overflow-y: auto; display: none; }
+  @media (min-width: 800px) { .pm-tracker { display: block; } }
+  .pm-tracker h3 { font-size: 0.85rem; font-weight: 800; margin-bottom: 10px; }
+  .pm-progress-bar-wrap { background: var(--bg); border-radius: 6px; height: 8px; margin-bottom: 12px; overflow: hidden; }
+  .pm-progress-bar-fill { height: 100%; background: var(--green); border-radius: 6px; transition: width 0.4s; }
+  .pm-tracker-list { display: flex; flex-direction: column; gap: 6px; }
+  .pm-tracker-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 0.78rem; border: 1.5px solid transparent; transition: background 0.2s; }
+  .pm-tracker-item.current { background: #fef9c3; border-color: #fde047; }
+  .pm-tracker-item.green   { background: #d1fae5; }
+  .pm-tracker-item.red     { background: #fee2e2; }
+  .pm-tracker-item.orange  { background: #ffedd5; }
+  .pm-tracker-item.skipped { background: #f3f4f6; }
+  .pm-tracker-item.pending { background: var(--bg); }
+  .pm-tracker-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pm-tracker-dot.green   { background: var(--green); }
+  .pm-tracker-dot.red     { background: var(--red); }
+  .pm-tracker-dot.orange  { background: #f97316; }
+  .pm-tracker-dot.skipped { background: var(--grey); }
+  .pm-tracker-dot.pending { background: var(--border); }
+  .pm-tracker-qnum { font-weight: 700; flex-shrink: 0; }
+  .pm-tracker-info { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pm-tracker-marks { font-weight: 700; flex-shrink: 0; }
+  .pm-tracker-toggle { display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; cursor: pointer; font-size: 0.88rem; font-weight: 700; }
+  @media (min-width: 800px) { .pm-tracker-toggle { display: none; } }
+  .pm-tracker-mobile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: none; }
+  .pm-tracker-mobile.open { display: block; }
+  @media (min-width: 800px) { .pm-tracker-mobile { display: none !important; } }
+  #pm-resume-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250; align-items: center; justify-content: center; }
+  #pm-resume-overlay.open { display: flex; }
+  #pm-resume-modal { background: var(--card); border-radius: 20px; padding: 28px 24px; max-width: 340px; width: 92%; text-align: center; }
+  #pm-resume-modal h2 { font-size: 1.2rem; font-weight: 800; margin-bottom: 8px; color: var(--primary); }
+  #pm-resume-modal p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; }
+  #pm-resume-modal .pm-resume-btns { display: flex; gap: 10px; justify-content: center; }
+  .pm-spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: pm-spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes pm-spin { to { transform: rotate(360deg); } }
+  .pm-lang-warning { background: #fef3c7; border: 1.5px solid #fcd34d; border-radius: 10px; padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: #92400e; display: none; text-align: center; margin-top: 8px; }
+  .pm-add-form { border: 1.5px dashed var(--primary); border-radius: 12px; padding: 14px; background: var(--primary-light); display: none; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .pm-add-form textarea { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 60px; }
+  .pm-add-form textarea:focus { outline: none; border-color: var(--primary); }
+  .pm-add-form select { height: 36px; border-radius: 8px; border: 1.5px solid var(--border); font-size: 0.85rem; }
+  .pm-add-form-actions { display: flex; gap: 8px; }
+  .pm-extract-status { font-size: 0.85rem; color: var(--primary); font-weight: 600; margin-top: 8px; min-height: 1.2rem; }
+  .pm-review-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; max-height: 420px; overflow-y: auto; }
+  .pm-q-item { border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; background: var(--bg); }
+  .pm-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .pm-type-true_false   { background: #3b82f6; }
+  .pm-type-short_answer { background: #8b5cf6; }
+  .pm-type-long_answer  { background: #92400e; }
+  .pm-type-fill_blank   { background: #f97316; }
+  .pm-type-multi_part   { background: #ef4444; }
+  .pm-q-text { flex: 1; font-size: 0.9rem; line-height: 1.5; }
+  .pm-q-type-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px; }
+  .pm-q-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .pm-edit-area { width: 100%; margin-top: 6px; display: none; }
+  .pm-edit-area textarea { width: 100%; border: 1.5px solid var(--primary); border-radius: 8px; padding: 8px 10px; font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 70px; }
+  .pm-edit-area textarea:focus { outline: none; }
+  .pm-export-opt { display: block; width: 100%; padding: 10px 14px; background: none; border: none; text-align: left; font-size: 0.88rem; cursor: pointer; color: var(--text); }
+  .pm-export-opt:hover { background: var(--primary-light); color: var(--primary); }
+
+  @media (min-width: 640px) {
+    #live-main { padding: 20px; }
+    #state-circle { width: 200px; height: 200px; font-size: 3.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── CLASS SELECTION MODAL ── -->
+<div id="class-modal-overlay">
+  <div id="class-modal">
+    <h2>👋 Welcome!</h2>
+    <p>Select your class so ReadingBuddy can explain things the right way for you.</p>
+    <div id="class-grid"></div>
+    <button class="btn btn-primary" id="class-modal-confirm" style="width:100%;height:46px;font-size:1rem;">Let's Go! 🚀</button>
+  </div>
+</div>
+
+<!-- ── SETTINGS OVERLAY ── -->
+<div id="settings-overlay" onclick="closeSettings()"></div>
+<div id="settings-panel">
+  <div id="settings-header">
+    <span>⚙️ Settings</span>
+    <button id="close-settings" onclick="closeSettings()">✕</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>Class / Standard</h3>
+    <div class="field">
+      <label>Your Class</label>
+      <select id="settings-class-select"></select>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>API Key</h3>
+    <div class="field">
+      <label>Gemini API Key</label>
+      <div class="key-row">
+        <input type="password" id="gemini-key" placeholder="AIza...">
+        <button class="eye-btn" onclick="toggleKey('gemini-key',this)">👁</button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Required for Live session + Practice Mode</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="saveKeys()" style="width:100%">Save API Key</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>Live Session Voice</h3>
+    <div class="field">
+      <label>Voice (takes effect on next session)</label>
+      <select id="settings-voice">
+        <option value="Puck">Puck (default)</option>
+        <option value="Charon">Charon</option>
+        <option value="Kore">Kore</option>
+        <option value="Fenrir">Fenrir</option>
+        <option value="Aoede">Aoede</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Default Response Language</h3>
+    <div class="field">
+      <select id="settings-resp-lang">
+        <option value="english">English</option>
+        <option value="hindi">Hindi</option>
+        <option value="punjabi">Punjabi</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Practice Model</h3>
+    <div class="field">
+      <label>Model for Practice Evaluation</label>
+      <select id="pm-model-select">
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash (recommended)</option>
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+        <option value="gemini-3.1-flash-live-preview">Gemini 3.1 Flash Live Preview</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Session</h3>
+    <button class="btn btn-danger btn-sm" onclick="endSessionFromSettings()" style="width:100%;margin-bottom:8px;">🔴 End Session &amp; Disconnect</button>
+    <button class="btn btn-sm" onclick="clearAllData()" style="width:100%;color:var(--red);">🗑 Clear All Data</button>
+  </div>
+</div>
+
+<!-- ── PRACTICE RESUME MODAL ── -->
+<div id="pm-resume-overlay">
+  <div id="pm-resume-modal">
+    <h2>📋 Resume Practice?</h2>
+    <p>You have an unfinished practice session. Would you like to continue where you left off?</p>
+    <div class="pm-resume-btns">
+      <button class="btn btn-primary" onclick="pmResumeSession()">Resume</button>
+      <button class="btn" onclick="pmDiscardResume()">Start Fresh</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOP BAR ── -->
+<div id="topbar">
+  <div id="logo">📚 ReadingBuddy <span class="live-dot"></span> Live</div>
+  <select id="class-select-top" onchange="onClassChange(this.value)" title="Select Class"></select>
+  <a href="index.html" id="back-link">← Budget Mode</a>
+  <button id="gear-btn" onclick="openSettings()" title="Settings">⚙️</button>
+</div>
+
+<!-- ── TAB BAR ── -->
+<div id="tab-bar">
+  <button class="tab-btn active" id="tab-live" onclick="switchTab('live')">🎙 Live Reading</button>
+  <button class="tab-btn" id="tab-practice" onclick="switchTab('practice')">✏️ Practice</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     LIVE READING TAB
+     ══════════════════════════════════════ -->
+<div id="live-tab">
+<div id="live-main">
+
+  <!-- Browser compat warning -->
+  <div id="compat-warning"></div>
+
+  <!-- Connection status bar -->
+  <div id="conn-status-bar">
+    <div id="conn-dot"></div>
+    <span id="conn-bar-text">Live</span>
+    <span id="conn-session-info" style="margin-left:auto;font-size:0.8rem;opacity:0.8;"></span>
+  </div>
+
+  <!-- Chapter Loader -->
+  <div class="card" id="chapter-card">
+    <div class="card-header" onclick="toggleCard('chapter-card')">
+      <span>📖 Load Chapter</span>
+      <span class="collapse-icon">▼</span>
+    </div>
+    <div class="card-body">
+      <div class="chapter-btns">
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('pdf-input').click()">📄 Upload PDF</button>
+        <button class="btn btn-sm" onclick="document.getElementById('photo-input').click()">📁 Gallery</button>
+        <button class="btn btn-sm" onclick="document.getElementById('photo-camera-input').click()">📸 Camera</button>
+        <button class="btn btn-sm" id="extract-btn" onclick="extractTextFromPhotos()" style="display:none">🔍 Extract Text</button>
+      </div>
+      <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfUpload(event)">
+      <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos(event)">
+      <input type="file" id="photo-camera-input" accept="image/*" capture="environment" style="display:none" onchange="addPhotos(event)">
+      <div id="photo-thumbs"></div>
+      <div id="ocr-progress"></div>
+      <div id="chapter-status">No chapter loaded yet. Upload a PDF or add page photos.</div>
+    </div>
+  </div>
+
+  <!-- Main Circle Area -->
+  <div class="card" id="circle-card" style="padding:0;">
+    <div id="circle-area">
+      <div id="state-circle" class="disconnected">🎙</div>
+      <div id="state-label">Start a live session to begin</div>
+
+      <div id="photo-banner">📷 Photo Mode — Live session paused</div>
+
+      <div id="session-btns">
+        <button id="start-btn" onclick="startSession()">🎙 Start Live Session</button>
+        <div id="start-blocked-msg" style="font-size:0.85rem;color:#b45309;margin-top:8px;display:none;"></div>
+        <button id="end-btn" onclick="endSession()">🔴 End Session</button>
+        <button id="mute-btn" onclick="toggleMute()">🔇 Mute</button>
+        <button id="photo-ask-btn" onclick="askAboutPhoto()">📷 Ask About a Photo</button>
+      </div>
+
+      <button id="reconnect-btn" onclick="reconnect()">🔄 Reconnect</button>
+    </div>
+  </div>
+
+  <!-- Transcript Panel -->
+  <div id="transcript-panel">
+    <div id="transcript-header">
+      <span>💬 Transcript</span>
+      <button class="btn btn-sm" onclick="clearTranscript()">Clear</button>
+    </div>
+    <div id="transcript-list">
+      <div id="tx-empty">No conversation yet. Start a session and speak naturally.</div>
+    </div>
+  </div>
+
+</div>
+</div><!-- end #live-tab -->
+
+<!-- ══════════════════════════════════════
+     PRACTICE TAB
+     ══════════════════════════════════════ -->
+<div id="practice-tab">
+  <div class="pm-layout">
+    <div class="pm-main-col">
+
+      <!-- SETUP VIEW -->
+      <div id="pm-setup-view">
+        <div class="pm-card">
+          <h2>✏️ Practice Mode</h2>
+          <div id="pm-chapter-status-box" class="pm-chapter-status">
+            ⚠️ No chapter loaded. Please go to the Live Reading tab and load a chapter first.
+          </div>
+
+          <!-- Upload Question Set -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Option 1 — Upload Your Question Set</div>
+            <div class="pm-upload-row">
+              <button class="btn btn-sm" onclick="document.getElementById('pm-pdf-input').click()">📄 Upload PDF</button>
+              <button class="btn btn-sm" onclick="document.getElementById('pm-photo-input').click()">📁 Gallery</button>
+              <button class="btn btn-sm" onclick="document.getElementById('pm-camera-input').click()">📸 Camera</button>
+            </div>
+            <input type="file" id="pm-pdf-input" accept=".pdf" style="display:none" onchange="pmHandleQPdf(event)">
+            <input type="file" id="pm-photo-input" accept="image/*" multiple style="display:none" onchange="pmHandleQPhotos(event)">
+            <input type="file" id="pm-camera-input" accept="image/*" capture="environment" style="display:none" onchange="pmHandleQPhotos(event)">
+            <div id="pm-q-thumbs" class="pm-q-thumbs"></div>
+            <div id="pm-extract-status" class="pm-extract-status"></div>
+            <button class="btn btn-primary btn-sm pm-extract-btn" id="pm-extract-btn" onclick="pmExtractQuestions()" style="display:none">🔍 Extract Questions</button>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+            <span style="font-size:0.8rem;font-weight:700;color:var(--text-muted);">OR</span>
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+          </div>
+
+          <!-- Generate from Chapter -->
+          <div>
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Option 2 — Generate Questions from Chapter</div>
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">Let AI create important questions from the loaded chapter.</div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:0.82rem;font-weight:700;margin-bottom:8px;color:var(--text);">Question Types</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <label class="pm-type-toggle"><input type="checkbox" id="gen-type-tf" checked onchange="pmSyncGenTypes()"><span>🔵 True / False</span></label>
+                <label class="pm-type-toggle"><input type="checkbox" id="gen-type-sa" checked onchange="pmSyncGenTypes()"><span>🟣 Short Answer</span></label>
+                <label class="pm-type-toggle"><input type="checkbox" id="gen-type-la" onchange="pmSyncGenTypes()"><span>🟤 Long Answer</span></label>
+                <label class="pm-type-toggle"><input type="checkbox" id="gen-type-fb" checked onchange="pmSyncGenTypes()"><span>🟠 Fill in the Blank</span></label>
+              </div>
+              <div id="gen-type-warning" style="display:none;font-size:0.8rem;color:var(--red);margin-top:6px;">⚠️ Select at least one question type.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <label style="font-size:0.9rem;font-weight:600;">How many?</label>
+              <div style="display:flex;gap:6px;">
+                <button class="pm-count-btn active" data-count="5" onclick="pmSetGenCount(this)">5</button>
+                <button class="pm-count-btn" data-count="7" onclick="pmSetGenCount(this)">7</button>
+                <button class="pm-count-btn" data-count="10" onclick="pmSetGenCount(this)">10</button>
+              </div>
+              <button class="btn btn-primary btn-sm" id="pm-generate-btn" onclick="pmGenerateQuestions()" style="flex:1;min-width:160px;">✨ Generate Questions</button>
+            </div>
+            <div id="pm-generate-status" class="pm-extract-status" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <!-- Review Panel -->
+        <div class="pm-card" id="pm-review-panel" style="display:none">
+          <h2>📋 Review Questions</h2>
+          <div class="pm-add-form" id="pm-add-form">
+            <select id="pm-add-type">
+              <option value="short_answer">🟣 Short Answer</option>
+              <option value="true_false">🔵 True/False</option>
+              <option value="long_answer">🟤 Long Answer</option>
+              <option value="fill_blank">🟠 Fill in the Blank</option>
+              <option value="multi_part">🔴 Multi-Part</option>
+            </select>
+            <textarea id="pm-add-text" placeholder="Type the question here..."></textarea>
+            <div class="pm-add-form-actions">
+              <button class="btn btn-primary btn-sm" onclick="pmConfirmAddQuestion()">Add</button>
+              <button class="btn btn-sm" onclick="pmCancelAddQuestion()">Cancel</button>
+            </div>
+          </div>
+          <div id="pm-review-list" class="pm-review-list"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+            <button class="btn btn-sm" onclick="pmShowAddForm()">+ Add Question</button>
+            <div style="position:relative;display:inline-block;" id="pm-export-wrap">
+              <button class="btn btn-sm" onclick="pmToggleExportMenu()" style="display:flex;align-items:center;gap:4px;">📤 Export <span style="font-size:0.7rem;">▼</span></button>
+              <div id="pm-export-menu" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow);min-width:170px;z-index:50;overflow:hidden;">
+                <button class="pm-export-opt" onclick="pmExport('txt')">📄 Plain Text (.txt)</button>
+                <button class="pm-export-opt" onclick="pmExport('print')">🖨 Print / Save PDF</button>
+                <button class="pm-export-opt" onclick="pmExport('copy')">📋 Copy to Clipboard</button>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="pm-start-btn" onclick="pmStartSession()" style="flex:1;min-width:160px;">✅ Start Practice</button>
+          </div>
+        </div>
+      </div><!-- end #pm-setup-view -->
+
+      <!-- SESSION VIEW -->
+      <div id="pm-session-view">
+        <div class="pm-tracker-toggle" onclick="pmToggleMobileTracker()">
+          <span id="pm-tracker-toggle-label">Progress: 0/0 ✅</span>
+          <span id="pm-tracker-toggle-arrow">▼</span>
+        </div>
+        <div class="pm-tracker-mobile" id="pm-tracker-mobile">
+          <div class="pm-progress-bar-wrap"><div class="pm-progress-bar-fill" id="pm-progress-bar-mobile" style="width:0%"></div></div>
+          <div class="pm-tracker-list" id="pm-tracker-list-mobile"></div>
+        </div>
+
+        <div class="pm-question-card" id="pm-question-card">
+          <div class="pm-cycle-badge" id="pm-cycle-badge">Cycle 1</div>
+          <div class="pm-question-text" id="pm-question-text">Loading...</div>
+          <div class="pm-sub-questions" id="pm-sub-questions" style="display:none"></div>
+          <div class="pm-mic-section">
+            <div class="pm-live-transcript" id="pm-live-transcript"></div>
+            <button class="pm-mic-btn idle" id="pm-mic-btn"
+              onmousedown="pmStartListening()" onmouseup="pmStopListening()"
+              ontouchstart="pmStartListening(event)" ontouchend="pmStopListening(event)">
+              🎤
+              <span class="pm-mic-label">Hold to Answer</span>
+            </button>
+            <div class="pm-text-answer-row" id="pm-text-answer-row">
+              <input type="text" id="pm-text-answer" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')pmSubmitTextAnswer()">
+              <button class="btn btn-primary btn-sm" onclick="pmSubmitTextAnswer()">Send</button>
+            </div>
+            <div class="pm-lang-warning" id="pm-lang-warning">⚠️ Please answer in English only. Try again.</div>
+          </div>
+          <div class="pm-session-actions" style="margin-top:14px;">
+            <button class="pm-skip-btn" onclick="pmSkip()">⏭ Skip</button>
+            <button class="btn btn-sm" onclick="pmEndSession()" style="color:var(--text-muted);">✕ End</button>
+          </div>
+        </div>
+
+        <div class="pm-result-card" id="pm-result-card">
+          <div class="pm-stars" id="pm-stars"></div>
+          <div class="pm-marks-text" id="pm-marks-text"></div>
+          <div class="pm-feedback-text" id="pm-feedback-text"></div>
+          <div class="pm-hint-box" id="pm-hint-box"></div>
+          <div class="pm-correct-answer" id="pm-correct-answer"></div>
+        </div>
+
+        <div class="pm-cycle-summary" id="pm-cycle-summary">
+          <h3 id="pm-cycle-summary-title">Cycle 1 Complete!</h3>
+          <div class="pm-stat-row" id="pm-cycle-stats"></div>
+          <button class="btn btn-primary" onclick="pmContinueCycle()">Continue ➜</button>
+        </div>
+      </div><!-- end #pm-session-view -->
+
+      <!-- PASSED VIEW -->
+      <div id="pm-passed-view">
+        <div class="pm-passed-screen">
+          <div style="font-size:3rem;margin-bottom:8px;">🎉</div>
+          <h1>Well Done!</h1>
+          <p>You answered all questions correctly!</p>
+          <div class="pm-passed-stats">
+            <div class="pm-passed-stat"><div class="pm-passed-stat-num" id="pm-passed-cycles">1</div><div class="pm-passed-stat-label">Cycles</div></div>
+            <div class="pm-passed-stat"><div class="pm-passed-stat-num" id="pm-passed-time">0:00</div><div class="pm-passed-stat-label">Time</div></div>
+            <div class="pm-passed-stat"><div class="pm-passed-stat-num" id="pm-passed-perfect">0</div><div class="pm-passed-stat-label">Perfect 5/5</div></div>
+          </div>
+          <div class="pm-passed-actions">
+            <button class="btn btn-primary" onclick="pmRestartPractice()">🔄 Practice Again</button>
+            <button class="btn" style="background:#ffffff22;color:#fff;border-color:#ffffff44;" onclick="switchTab('live')">🎙 Back to Live</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- end .pm-main-col -->
+
+    <!-- TRACKER SIDEBAR -->
+    <div class="pm-tracker" id="pm-tracker-desktop">
+      <h3>📊 Progress</h3>
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;" id="pm-tracker-progress-label">0/0 ✅</div>
+      <div class="pm-progress-bar-wrap"><div class="pm-progress-bar-fill" id="pm-progress-bar-desktop" style="width:0%"></div></div>
+      <div class="pm-tracker-list" id="pm-tracker-list-desktop" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div><!-- end #practice-tab -->
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// SHARED STATE
+// ═══════════════════════════════════════
+let chapterText   = '';
+let pagePhotos    = [];
+let currentClass  = '7';
+let responseLang  = 'english';
+let currentVoice  = 'Puck';
+let pmCurrentModel = 'gemini-2.5-flash-preview-04-17';
+let speechRate    = 0.95;
+
+// ═══════════════════════════════════════
+// UTILITIES (defined first — used everywhere)
+// ═══════════════════════════════════════
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function stripMarkdown(text) {
+  return text.replace(/\*\*(.*?)\*\*/g,'$1').replace(/\*(.*?)\*/g,'$1').replace(/`(.*?)`/g,'$1').replace(/#{1,6}\s/g,'');
+}
+
+function wordCount(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+let toastTimer;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ═══════════════════════════════════════
+// LIVE API STATE MACHINE
+// States: DISCONNECTED, CONNECTING, CONNECTED-IDLE (→css:idle),
+//         STUDENT (→css:student), MODEL (→css:model), PHOTO (→css:photo), ERROR (→css:error)
+// ═══════════════════════════════════════
+let wsState      = 'DISCONNECTED';
+let ws           = null;
+let micStream    = null;
+let audioCtx     = null;          // 16kHz capture
+let scriptProc   = null;          // keep reference to prevent GC
+let playCtx      = null;          // 24kHz playback
+let nextPlayTime = 0;
+let isMuted      = false;
+let sessionStartTime = null;
+let sessionTimer = null;
+let autoReconnect = true;
+let transcriptEntries = [];       // [{role, text, time}]
+let wsConnecting  = false;        // guard against multiple rapid startSession clicks
+
+// Display speech recognition for student transcript (display only)
+let displayRec  = null;
+
+// Map internal state names to CSS class names
+const STATE_CSS = {
+  DISCONNECTED: 'disconnected',
+  CONNECTING:   'connecting',
+  CONNECTED:    'idle',
+  STUDENT:      'student',
+  MODEL:        'model',
+  PHOTO:        'photo',
+  ERROR:        'error',
+};
+
+function setCircleState(state) {
+  wsState = state;
+  const circle = document.getElementById('state-circle');
+  const label  = document.getElementById('state-label');
+
+  // Apply correct CSS class
+  circle.className = STATE_CSS[state] || 'disconnected';
+
+  const icons = {
+    DISCONNECTED: '🎙',
+    CONNECTING:   '⏳',
+    CONNECTED:    '👂',
+    STUDENT:      '🗣',
+    MODEL:        '🤖',
+    PHOTO:        '📷',
+    ERROR:        '⚠️',
+  };
+  const labels = {
+    DISCONNECTED: 'Start a live session to begin',
+    CONNECTING:   'Connecting to Gemini Live...',
+    CONNECTED:    'Listening… speak naturally',
+    STUDENT:      'You are speaking…',
+    MODEL:        'ReadingBuddy is answering…',
+    PHOTO:        'Photo Mode — analysing image…',
+    ERROR:        'Connection error',
+  };
+  circle.textContent = icons[state] || '🎙';
+  label.textContent  = labels[state] || '';
+
+  // Show/hide buttons
+  const isConn = (state !== 'DISCONNECTED' && state !== 'ERROR' && state !== 'CONNECTING');
+  document.getElementById('start-btn').style.display   = (state === 'DISCONNECTED' || state === 'ERROR') ? '' : 'none';
+  document.getElementById('end-btn').style.display     = isConn ? '' : 'none';
+  document.getElementById('mute-btn').style.display    = isConn ? '' : 'none';
+  const photoBtn = document.getElementById('photo-ask-btn');
+  if (isConn) {
+    photoBtn.style.display = 'inline-flex';
+    photoBtn.classList.add('visible');
+  } else {
+    photoBtn.style.display = 'none';
+    photoBtn.classList.remove('visible');
+  }
+  document.getElementById('reconnect-btn').style.display = (state === 'ERROR') ? '' : 'none';
+  document.getElementById('conn-status-bar').classList.toggle('visible', isConn);
+
+  updateStartButtonState();
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+(function init() {
+  // PDF.js worker
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  // Build class selects
+  const classes = Array.from({length:12},(_,i)=>String(i+1));
+  const classGrid = document.getElementById('class-grid');
+  const topSel    = document.getElementById('class-select-top');
+  const settSel   = document.getElementById('settings-class-select');
+
+  classes.forEach(c => {
+    const opt = document.createElement('div');
+    opt.className = 'class-opt';
+    opt.textContent = 'Class ' + c;
+    opt.dataset.val = c;
+    opt.onclick = () => {
+      document.querySelectorAll('.class-opt').forEach(x=>x.classList.remove('selected'));
+      opt.classList.add('selected');
+    };
+    classGrid.appendChild(opt);
+    const o1 = document.createElement('option');
+    o1.value = c; o1.textContent = 'Class ' + c;
+    topSel.appendChild(o1);
+    const o2 = document.createElement('option');
+    o2.value = c; o2.textContent = 'Class ' + c;
+    settSel.appendChild(o2);
+  });
+
+  // Load saved values
+  const savedClass   = localStorage.getItem('rb_class');
+  const savedRLang   = localStorage.getItem('rb_resp_lang');
+  const savedChapter = localStorage.getItem('rb_chapter');
+  const savedVoice   = localStorage.getItem('rb_live_voice');
+  const savedPMModel = localStorage.getItem('rb_pm_model');
+
+  if (savedRLang) {
+    responseLang = savedRLang;
+    document.getElementById('settings-resp-lang').value = savedRLang;
+  }
+  if (savedVoice) {
+    currentVoice = savedVoice;
+    document.getElementById('settings-voice').value = savedVoice;
+  }
+  if (savedPMModel) {
+    pmCurrentModel = savedPMModel;
+    document.getElementById('pm-model-select').value = savedPMModel;
+  }
+
+  // Load API key
+  const savedKey = localStorage.getItem('rb_gemini-key');
+  if (savedKey) document.getElementById('gemini-key').value = savedKey;
+
+  if (savedChapter) {
+    chapterText = savedChapter;
+    const truncated = chapterText.length > 8000;
+    updateChapterStatus('Chapter loaded from Budget Mode ✅ — ~' + wordCount(chapterText) + ' words' + (truncated ? ' (long chapter — will be trimmed in session)' : ''), true);
+  }
+
+  if (savedClass) {
+    currentClass = savedClass;
+    topSel.value = savedClass;
+    settSel.value = savedClass;
+    document.querySelectorAll('.class-opt').forEach(x=>{
+      if(x.dataset.val===savedClass) x.classList.add('selected');
+    });
+  } else {
+    document.getElementById('class-modal-overlay').classList.add('open');
+    document.querySelector('.class-opt[data-val="7"]').classList.add('selected');
+  }
+
+  settSel.onchange = (e) => {
+    const newClass = e.target.value;
+    if (wsState !== 'DISCONNECTED' && wsState !== 'ERROR') {
+      showToast('Class changed — please end and restart your session for it to take effect.', 'error');
+    }
+    currentClass = newClass;
+    topSel.value = newClass;
+    localStorage.setItem('rb_class', currentClass);
+  };
+
+  document.getElementById('settings-resp-lang').onchange = (e) => {
+    responseLang = e.target.value;
+    localStorage.setItem('rb_resp_lang', responseLang);
+  };
+
+  document.getElementById('settings-voice').onchange = (e) => {
+    currentVoice = e.target.value;
+    localStorage.setItem('rb_live_voice', currentVoice);
+    if (wsState !== 'DISCONNECTED' && wsState !== 'ERROR') {
+      showToast('Voice change takes effect on next session.', 'success');
+    }
+  };
+
+  document.getElementById('pm-model-select').onchange = (e) => {
+    pmCurrentModel = e.target.value;
+    localStorage.setItem('rb_pm_model', e.target.value);
+  };
+
+  checkBrowserCompat();
+  setCircleState('DISCONNECTED');
+  updateStartButtonState();
+
+  // Tab close / refresh cleanup
+  window.addEventListener('beforeunload', () => {
+    if (ws) { try { ws.close(); } catch(_) {} }
+    if (pmRecognition) { try { pmRecognition.stop(); } catch(_) {} }
+  });
+})();
+
+// ═══════════════════════════════════════
+// BROWSER COMPAT CHECK
+// ═══════════════════════════════════════
+function checkBrowserCompat() {
+  const warn = document.getElementById('compat-warning');
+  const issues = [];
+  const ua = navigator.userAgent;
+  const isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua);
+  const isEdge   = /Edg\//.test(ua);
+  if (!isChrome && !isEdge) issues.push('Chrome or Edge browser is recommended for best WebSocket and AudioContext support.');
+  if (!window.WebSocket) issues.push('WebSocket not supported.');
+  if (!window.AudioContext && !window.webkitAudioContext) issues.push('AudioContext not supported — audio will not work.');
+  if (!navigator.mediaDevices?.getUserMedia) issues.push('Microphone access (getUserMedia) not available.');
+  if (issues.length > 0) {
+    warn.style.display = 'block';
+    warn.innerHTML = '⚠️ <strong>Compatibility Notice:</strong> ' + issues.join(' ');
+  }
+}
+
+// ═══════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════
+function switchTab(tab) {
+  // Stop Practice Mode recognition when leaving practice tab
+  if (tab !== 'practice' && pmRecognition) {
+    try { pmRecognition._pmShouldEvaluate = false; pmRecognition.stop(); } catch(_) {}
+  }
+  document.getElementById('live-tab').style.display = tab === 'live' ? 'block' : 'none';
+  document.getElementById('practice-tab').style.display = tab === 'practice' ? 'block' : 'none';
+  document.getElementById('tab-live').classList.toggle('active', tab === 'live');
+  document.getElementById('tab-practice').classList.toggle('active', tab === 'practice');
+  if (tab === 'practice') {
+    pmRefreshChapterStatus();
+    pmCheckResume();
+  }
+}
+
+// ═══════════════════════════════════════
+// CLASS MODAL
+// ═══════════════════════════════════════
+document.getElementById('class-modal-confirm').onclick = () => {
+  const sel = document.querySelector('.class-opt.selected');
+  if (!sel) { showToast('Please select your class first.','error'); return; }
+  currentClass = sel.dataset.val;
+  localStorage.setItem('rb_class', currentClass);
+  document.getElementById('class-select-top').value = currentClass;
+  document.getElementById('settings-class-select').value = currentClass;
+  document.getElementById('class-modal-overlay').classList.remove('open');
+};
+
+function onClassChange(val) {
+  if (wsState !== 'DISCONNECTED' && wsState !== 'ERROR') {
+    showToast('Class changed — please end and restart your session for it to take effect.', 'error');
+  }
+  currentClass = val;
+  localStorage.setItem('rb_class', val);
+  document.getElementById('settings-class-select').value = val;
+}
+
+// ═══════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('open');
+  document.getElementById('settings-panel').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+  document.getElementById('settings-panel').classList.remove('open');
+}
+function toggleKey(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+function saveKeys() {
+  const val = document.getElementById('gemini-key').value.trim();
+  if (val) localStorage.setItem('rb_gemini-key', val);
+  else localStorage.removeItem('rb_gemini-key');
+  showToast('API Key saved! ✓', 'success');
+  updateStartButtonState();
+}
+function clearAllData() {
+  if (!confirm('Clear all saved data including API key and chapter?')) return;
+  localStorage.clear();
+  chapterText = '';
+  pagePhotos = [];
+  updateChapterStatus('No chapter loaded yet. Upload a PDF or add page photos.');
+  document.getElementById('photo-thumbs').innerHTML = '';
+  document.getElementById('gemini-key').value = '';
+  updateStartButtonState();
+  showToast('All data cleared.', 'success');
+}
+function endSessionFromSettings() {
+  closeSettings();
+  if (wsState !== 'DISCONNECTED') endSession();
+}
+
+function updateStartButtonState() {
+  const btn = document.getElementById('start-btn');
+  const msg = document.getElementById('start-blocked-msg');
+  const hasKey = !!localStorage.getItem('rb_gemini-key');
+  const hasChapter = chapterText && chapterText.trim().length > 0;
+  const notBusy = (wsState === 'DISCONNECTED' || wsState === 'ERROR') && !wsConnecting;
+  btn.disabled = !hasKey || !hasChapter || !notBusy;
+  if (!hasKey) {
+    msg.style.display = 'block';
+    msg.innerHTML = '⚠️ Gemini API key required. Open <b>Settings ⚙</b> and add your key.';
+  } else if (!hasChapter) {
+    msg.style.display = 'block';
+    msg.textContent = '⚠️ Please load a chapter first using the Load Chapter section above.';
+  } else {
+    msg.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════
+// CARD TOGGLE
+// ═══════════════════════════════════════
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ═══════════════════════════════════════
+// CHAPTER LOADING
+// ═══════════════════════════════════════
+function updateChapterStatus(msg, isLoaded) {
+  const el = document.getElementById('chapter-status');
+  el.textContent = msg;
+  el.className = isLoaded ? 'loaded' : '';
+  updateStartButtonState();
+}
+
+async function handlePdfUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (typeof pdfjsLib === 'undefined') { showToast('PDF.js not loaded.','error'); return; }
+  updateChapterStatus('Reading PDF…');
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(s=>s.str).join(' ') + '\n';
+    }
+    chapterText = text.trim();
+    if (!chapterText) { showToast('No text found in PDF.','error'); updateChapterStatus('PDF appears to be image-only. Use Photo OCR instead.'); return; }
+    localStorage.setItem('rb_chapter', chapterText);
+    const truncated = chapterText.length > 8000;
+    updateChapterStatus('Chapter loaded — ~' + wordCount(chapterText) + ' words ✅' + (truncated ? ' (long chapter — will be trimmed in session)' : ''), true);
+    showToast('Chapter loaded ✓', 'success');
+  } catch(e) {
+    updateChapterStatus('Failed to read PDF: ' + e.message);
+    showToast('PDF error: ' + e.message, 'error');
+  }
+  event.target.value = '';
+}
+
+function addPhotos(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      pagePhotos.push({dataUrl: e.target.result, mimeType: file.type});
+      renderThumbs();
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+  document.getElementById('extract-btn').style.display = 'block';
+}
+
+function renderThumbs() {
+  const container = document.getElementById('photo-thumbs');
+  container.innerHTML = '';
+  pagePhotos.forEach((p, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    const img = document.createElement('img');
+    img.src = p.dataUrl;
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-label';
+    lbl.textContent = 'Pg ' + (i+1);
+    const del = document.createElement('button');
+    del.className = 'thumb-del';
+    del.textContent = '✕';
+    del.onclick = () => removePhoto(i);
+    wrap.appendChild(img); wrap.appendChild(lbl); wrap.appendChild(del);
+    container.appendChild(wrap);
+  });
+}
+
+function removePhoto(idx) {
+  pagePhotos.splice(idx, 1);
+  renderThumbs();
+  if (pagePhotos.length === 0) document.getElementById('extract-btn').style.display = 'none';
+}
+
+async function extractTextFromPhotos() {
+  const key = localStorage.getItem('rb_gemini-key');
+  if (!key) { showToast('Add your Gemini API key in Settings first.','error'); return; }
+  if (pagePhotos.length === 0) { showToast('No photos added.','error'); return; }
+  const progressEl = document.getElementById('ocr-progress');
+  const btn = document.getElementById('extract-btn');
+  btn.disabled = true;
+  let allText = '';
+  for (let i = 0; i < pagePhotos.length; i++) {
+    progressEl.textContent = `OCR: page ${i+1}/${pagePhotos.length}…`;
+    try {
+      const p = pagePhotos[i];
+      const body = {
+        contents:[{role:'user',parts:[
+          {text:'Extract all text from this textbook page. Return plain text only, no formatting.'},
+          {inlineData:{mimeType:p.mimeType, data:p.dataUrl.split(',')[1]}}
+        ]}]
+      };
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if (res.status === 429) { progressEl.textContent = 'Quota exceeded (429). Please wait and try again.'; break; }
+      const data = await res.json();
+      allText += (data.candidates?.[0]?.content?.parts?.[0]?.text || '') + '\n\n';
+    } catch(e) {
+      progressEl.textContent = 'Error on page ' + (i+1) + ': ' + e.message;
+    }
+  }
+  progressEl.textContent = '';
+  chapterText = allText.trim();
+  if (!chapterText) { showToast('No text extracted.','error'); btn.disabled = false; return; }
+  localStorage.setItem('rb_chapter', chapterText);
+  const truncated = chapterText.length > 8000;
+  updateChapterStatus('Chapter extracted — ~' + wordCount(chapterText) + ' words ✅' + (truncated ? ' (long chapter — will be trimmed in session)' : ''), true);
+  showToast('Text extracted ✓', 'success');
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════
+// SYSTEM PROMPT
+// ═══════════════════════════════════════
+function getSystemPrompt() {
+  const classInstructions = {
+    '1': "You are ReadingBuddy, a friendly tutor for a Class 1 student aged 6-7. Use very simple words. Very short answers of 2-3 sentences. Use fun daily life examples like toys and food.",
+    '2': "You are ReadingBuddy, a friendly tutor for a Class 2 student aged 6-7. Use very simple words. Very short answers of 2-3 sentences. Use fun daily life examples like toys and food.",
+    '3': "You are ReadingBuddy, a friendly tutor for a Class 3 student aged 8-10. Use simple friendly language. Use examples from school, games, animals.",
+    '4': "You are ReadingBuddy, a friendly tutor for a Class 4 student aged 8-10. Use simple friendly language. Use examples from school, games, animals.",
+    '5': "You are ReadingBuddy, a friendly tutor for a Class 5 student aged 8-10. Use simple friendly language. Use examples from school, games, animals.",
+    '6': "You are ReadingBuddy, a helpful tutor for a Class 6 student aged 11-13. Use clear language. Explain any difficult words you use.",
+    '7': "You are ReadingBuddy, a helpful tutor for a Class 7 student aged 11-13. Use clear language. Explain any difficult words you use.",
+    '8': "You are ReadingBuddy, a helpful tutor for a Class 8 student aged 11-13. Use clear language. Explain any difficult words you use.",
+    '9': "You are ReadingBuddy, a tutor for a Class 9 student aged 14-15. Be clear and thorough. Use correct subject terminology.",
+    '10': "You are ReadingBuddy, a tutor for a Class 10 student aged 14-15. Be clear and thorough. Use correct subject terminology.",
+    '11': "You are ReadingBuddy, a tutor for a Class 11 student aged 16-17. Be detailed and technically accurate.",
+    '12': "You are ReadingBuddy, a tutor for a Class 12 student aged 16-17. Be detailed and technically accurate.",
+  };
+  const classInstr = classInstructions[currentClass] || classInstructions['7'];
+  const langInstr  = responseLang !== 'english'
+    ? `\nDefault response language: ${responseLang}. If student speaks in English, still respond in ${responseLang} unless they say otherwise.`
+    : '';
+
+  // Truncate to ~8000 chars to keep prompt manageable
+  const chapterSlice = chapterText.slice(0, 8000);
+  const wasTruncated = chapterText.length > 8000;
+
+  return `You are ReadingBuddy, a friendly AI tutor for a Class ${currentClass} student.
+${classInstr}
+You are in a LIVE voice conversation. The student is reading their textbook chapter aloud.
+STRICT RULE: Answer ONLY from the chapter text below. Do not use any outside knowledge.
+If the answer is not in the chapter say exactly: "I could not find that in your chapter. Please ask your teacher."
+BEHAVIOUR:
+- Do NOT comment while student is just reading
+- Wait for student to ask a question or express confusion
+- Keep answers SHORT and SPOKEN — no bullet points or lists
+- Be warm, patient and encouraging
+- If student says "explain in Hindi" → switch to Hindi
+- If student says "explain in Punjabi" → switch to Punjabi${langInstr}
+CHAPTER TEXT${wasTruncated ? ' (first 8000 characters)' : ''}:
+---
+${chapterSlice}
+---`;
+}
+
+// ═══════════════════════════════════════
+// SESSION MANAGEMENT
+// ═══════════════════════════════════════
+async function startSession() {
+  const key = localStorage.getItem('rb_gemini-key');
+  if (!key) { showToast('Add your Gemini API key in Settings ⚙', 'error'); return; }
+  if (!chapterText || chapterText.trim().length === 0) { showToast('Load a chapter first.', 'error'); return; }
+
+  // Prevent multiple rapid clicks / duplicate connections
+  if (wsConnecting) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    showToast('Already connected.', 'error'); return;
+  }
+
+  wsConnecting = true;
+  autoReconnect = true;
+  setCircleState('CONNECTING');
+
+  // Ensure any previous WS is fully closed
+  if (ws) { try { ws.close(); } catch(_) {} ws = null; }
+
+  // Create/resume playback context on user gesture
+  ensurePlayCtx();
+  if (playCtx.state === 'suspended') {
+    try { await playCtx.resume(); } catch(_) {}
+  }
+
+  try {
+    await openWebSocket(key);
+  } catch(e) {
+    wsConnecting = false;
+    setCircleState('ERROR');
+    document.getElementById('state-label').textContent = 'Connection failed: ' + e.message;
+    showToast('Failed to connect: ' + e.message, 'error');
+  }
+}
+
+function openWebSocket(key) {
+  return new Promise((resolve, reject) => {
+    const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${key}`;
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      // Minimal Gemini Live API setup — add voice/system after connection confirmed
+      const setup = {
+        setup: {
+          model: 'models/gemini-3.1-flash-live-preview',
+          generation_config: {
+            response_modalities: ['AUDIO']
+          },
+          system_instruction: {
+            parts: [{ text: getSystemPrompt() }]
+          }
+        }
+      };
+      ws.send(JSON.stringify(setup));
+    };
+
+    ws.onmessage = (event) => {
+      let msg;
+      try { msg = JSON.parse(event.data); } catch(e) { return; }
+
+      if (msg.setupComplete) {
+        wsConnecting = false;
+        resolve();
+        setCircleState('CONNECTED');
+        startMic();
+        startSessionTimer();
+        startDisplayRecognition();
+        updateConnBar();
+        showToast('Connected to Gemini Live ✓', 'success');
+        return;
+      }
+
+      if (msg.serverContent) {
+        const sc = msg.serverContent;
+
+        // Audio chunks from model
+        if (sc.modelTurn && sc.modelTurn.parts) {
+          setCircleState('MODEL');
+          sc.modelTurn.parts.forEach(part => {
+            if (part.inlineData && part.inlineData.data) {
+              playPcmChunk(part.inlineData.data);
+            }
+            if (part.text) {
+              addTranscriptEntry('rb', part.text);
+            }
+          });
+        }
+
+        // Model finished speaking → back to listening
+        if (sc.turnComplete) {
+          setCircleState('CONNECTED');
+        }
+      }
+
+      if (msg.error) {
+        const code = msg.error.code;
+        let errMsg = msg.error.message || 'Unknown error';
+        if (code === 429) errMsg = 'Quota exceeded (429). Please wait and try again.';
+        wsConnecting = false;
+        setCircleState('ERROR');
+        document.getElementById('state-label').textContent = errMsg;
+        showToast(errMsg, 'error');
+      }
+    };
+
+    ws.onerror = (ev) => {
+      console.error('[WS] onerror', ev);
+      wsConnecting = false;
+      reject(new Error('WebSocket error'));
+    };
+
+    ws.onclose = (e) => {
+      console.warn('[WS] onclose code=' + e.code + ' reason=' + e.reason + ' state=' + wsState);
+      wsConnecting = false;
+      stopMic();
+      stopSessionTimer();
+      stopDisplayRecognition();
+
+      const wasConnecting = (wsState === 'CONNECTING');
+      const wasActive = (wsState === 'CONNECTED' || wsState === 'STUDENT' || wsState === 'MODEL');
+
+      if (wasActive && autoReconnect) {
+        autoReconnect = false;
+        showToast('Connection lost. Reconnecting…', 'error');
+        setTimeout(() => startSession(), 2000);
+      } else if (wasActive) {
+        setCircleState('ERROR');
+        document.getElementById('state-label').textContent =
+          e.code === 1006 ? 'Connection dropped. Click Reconnect.' :
+          ('Disconnected. ' + (e.reason || ''));
+      } else if (wasConnecting) {
+        setCircleState('ERROR');
+        const reason = e.reason
+          ? e.reason
+          : e.code === 1006
+            ? 'Connection refused (code 1006). Possible causes: invalid API key, no access to Gemini Live API, or network issue.'
+            : `Closed with code ${e.code}`;
+        document.getElementById('state-label').textContent = reason;
+        showToast('Could not connect: ' + (e.reason || 'code ' + e.code), 'error');
+        updateStartButtonState();
+      } else if (wsState !== 'DISCONNECTED') {
+        setCircleState('DISCONNECTED');
+      }
+    };
+  });
+}
+
+function endSession() {
+  autoReconnect = false;
+  wsConnecting  = false;
+  const prevWs = ws;
+  ws = null;              // null first so onclose doesn't trigger reconnect
+  stopMic();
+  stopSessionTimer();
+  stopDisplayRecognition();
+  if (prevWs) { try { prevWs.close(); } catch(_) {} }
+  nextPlayTime = 0;
+  setCircleState('DISCONNECTED');
+  document.getElementById('conn-status-bar').classList.remove('visible');
+  document.getElementById('photo-banner').style.display = 'none';
+}
+
+function reconnect() {
+  autoReconnect = true;
+  setCircleState('DISCONNECTED');
+  startSession();
+}
+
+// ═══════════════════════════════════════
+// MIC CAPTURE  (ScriptProcessor, 16kHz)
+// ═══════════════════════════════════════
+async function startMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    const source = audioCtx.createMediaStreamSource(micStream);
+    // Keep scriptProc reference on outer variable to prevent garbage collection
+    scriptProc  = audioCtx.createScriptProcessor(4096, 1, 1);
+
+    scriptProc.onaudioprocess = (e) => {
+      // Block if muted, in photo mode, WS not ready, or before setupComplete
+      if (isMuted || wsState === 'PHOTO' || !ws || ws.readyState !== WebSocket.OPEN || wsState === 'CONNECTING') return;
+      const float32 = e.inputBuffer.getChannelData(0);
+
+      // Detect student speaking via RMS for circle state
+      let sum = 0;
+      for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+      const rms = Math.sqrt(sum / float32.length);
+      if (rms > 0.01 && wsState === 'CONNECTED') setCircleState('STUDENT');
+      if (rms <= 0.005 && wsState === 'STUDENT') setCircleState('CONNECTED');
+
+      // Float32 → Int16 → base64
+      const int16 = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+      }
+      const b64 = arrayBufferToBase64(int16.buffer);
+
+      ws.send(JSON.stringify({
+        realtime_input: {
+          media_chunks: [{
+            mime_type: 'audio/pcm;rate=16000',
+            data: b64
+          }]
+        }
+      }));
+    };
+
+    source.connect(scriptProc);
+    scriptProc.connect(audioCtx.destination);
+  } catch(e) {
+    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+      setCircleState('ERROR');
+      document.getElementById('state-label').textContent = 'Microphone access denied. Please allow microphone access and refresh the page.';
+    } else {
+      showToast('Mic error: ' + e.message, 'error');
+    }
+  }
+}
+
+function stopMic() {
+  if (scriptProc) { try { scriptProc.disconnect(); } catch(_) {} scriptProc = null; }
+  if (audioCtx)   { audioCtx.close().catch(()=>{}); audioCtx = null; }
+  if (micStream)  { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+  btn.classList.toggle('muted', isMuted);
+  showToast(isMuted ? 'Microphone muted' : 'Microphone active', 'success');
+}
+
+// ═══════════════════════════════════════
+// AUDIO PLAYBACK  (24kHz)
+// ═══════════════════════════════════════
+function ensurePlayCtx() {
+  if (!playCtx || playCtx.state === 'closed') {
+    playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+    nextPlayTime = 0;
+  }
+}
+
+function playPcmChunk(b64) {
+  try {
+    ensurePlayCtx();
+    if (playCtx.state === 'suspended') playCtx.resume();
+
+    const binary = atob(b64);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    const int16 = new Int16Array(bytes.buffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768.0;
+
+    const buffer = playCtx.createBuffer(1, float32.length, 24000);
+    buffer.copyToChannel(float32, 0);
+
+    const src = playCtx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(playCtx.destination);
+
+    const now = playCtx.currentTime;
+    const startAt = Math.max(nextPlayTime, now + 0.01);
+    src.start(startAt);
+    nextPlayTime = startAt + buffer.duration;
+  } catch(e) {
+    // silently ignore minor audio glitches
+  }
+}
+
+// ═══════════════════════════════════════
+// DISPLAY SPEECH RECOGNITION (transcript only)
+// ═══════════════════════════════════════
+function startDisplayRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return;
+  if (displayRec) { try { displayRec.stop(); } catch(_) {} }
+  displayRec = new SpeechRec();
+  displayRec.continuous = true;
+  displayRec.interimResults = false;
+  displayRec.lang = 'en-IN';
+
+  displayRec.onresult = (event) => {
+    let text = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) text += event.results[i][0].transcript + ' ';
+    }
+    if (text.trim()) addTranscriptEntry('you', text.trim());
+  };
+
+  displayRec.onend = () => {
+    if (wsState !== 'DISCONNECTED' && wsState !== 'ERROR' && wsState !== 'PHOTO') {
+      try { displayRec.start(); } catch(_) {}
+    }
+  };
+
+  try { displayRec.start(); } catch(_) {}
+}
+
+function stopDisplayRecognition() {
+  if (displayRec) { try { displayRec.stop(); } catch(_) {} displayRec = null; }
+}
+
+// ═══════════════════════════════════════
+// SESSION TIMER & COST
+// ═══════════════════════════════════════
+function startSessionTimer() {
+  sessionStartTime = Date.now();
+  sessionTimer = setInterval(updateConnBar, 30000);
+  updateConnBar();
+}
+
+function stopSessionTimer() {
+  if (sessionTimer) { clearInterval(sessionTimer); sessionTimer = null; }
+  sessionStartTime = null;
+}
+
+function updateConnBar() {
+  const bar = document.getElementById('conn-session-info');
+  if (!sessionStartTime) { bar.textContent = ''; return; }
+  const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const costMins = elapsed / 60;
+  const cost = (costMins * 0.20 * 2).toFixed(2); // 0.20/min in + 0.20/min out → INR estimate
+  document.getElementById('conn-bar-text').textContent = `Live | Voice: ${currentVoice}`;
+  bar.textContent = `Session: ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')} | Est. cost: ₹${cost}`;
+}
+
+// ═══════════════════════════════════════
+// TRANSCRIPT (last 10 exchanges = 20 entries)
+// ═══════════════════════════════════════
+function addTranscriptEntry(role, text) {
+  if (!text || !text.trim()) return;
+  const now = new Date();
+  const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+  transcriptEntries.push({role, text: text.trim(), time});
+  if (transcriptEntries.length > 20) transcriptEntries.shift();
+  renderTranscript();
+}
+
+function renderTranscript() {
+  const list = document.getElementById('transcript-list');
+  const empty = document.getElementById('tx-empty');
+  if (transcriptEntries.length === 0) {
+    empty.style.display = '';
+    list.innerHTML = '';
+    list.appendChild(empty);
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+  transcriptEntries.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'tx-item';
+    if (entry.role === 'you') {
+      item.innerHTML = `<div class="tx-you">[You]: &ldquo;${escHtml(entry.text)}&rdquo;</div><div class="tx-time">🕐 ${entry.time}</div>`;
+    } else {
+      item.innerHTML = `<div class="tx-rb">[ReadingBuddy]: &ldquo;${escHtml(entry.text)}&rdquo;</div><div class="tx-time">🕐 ${entry.time}</div>`;
+    }
+    list.appendChild(item);
+  });
+  list.scrollTop = list.scrollHeight;
+}
+
+function clearTranscript() {
+  transcriptEntries = [];
+  renderTranscript();
+}
+
+// ═══════════════════════════════════════
+// PHOTO MODE
+// ═══════════════════════════════════════
+function askAboutPhoto() {
+  if (wsState === 'DISCONNECTED' || wsState === 'ERROR' || wsState === 'CONNECTING') return;
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await handlePhotoMode(file);
+  };
+  inp.click();
+}
+
+async function handlePhotoMode(file) {
+  const prevState = wsState;
+  setCircleState('PHOTO');
+  isMuted = true;
+  document.getElementById('mute-btn').textContent = '🔊 Unmute';
+  document.getElementById('mute-btn').classList.add('muted');
+  document.getElementById('photo-banner').style.display = 'block';
+
+  try {
+    const reader = new FileReader();
+    const dataUrl = await new Promise((res, rej) => {
+      reader.onload = e => res(e.target.result);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const key = localStorage.getItem('rb_gemini-key');
+    if (!key) throw new Error('No API key');
+    const body = {
+      contents: [{role:'user', parts:[
+        {text: `You are ReadingBuddy, a tutor for a Class ${currentClass} student. The student is asking about this photo in the context of their chapter. Chapter summary: "${chapterText.slice(0,2000)}". Please explain what is shown in this image in a way that helps the student understand the chapter concept. Be brief and clear — 2-3 sentences.`},
+        {inlineData: {mimeType: file.type, data: dataUrl.split(',')[1]}}
+      ]}]
+    };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}
+    );
+    if (!res.ok) {
+      const errData = await res.json().catch(()=>({error:{message:res.statusText}}));
+      if (res.status === 429) throw new Error('Quota exceeded (429). Please wait and try again.');
+      throw new Error(errData.error?.message || 'API error ' + res.status);
+    }
+    const data = await res.json();
+    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not analyse that image.';
+
+    addTranscriptEntry('rb', answer);
+
+    // Speak via Web Speech API TTS
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(answer);
+      utter.lang = 'en-IN';
+      utter.rate = 0.95;
+      utter.onend = () => resumeFromPhoto(prevState);
+      utter.onerror = () => resumeFromPhoto(prevState);
+      window.speechSynthesis.speak(utter);
+    } else {
+      setTimeout(() => resumeFromPhoto(prevState), 3000);
+    }
+  } catch(e) {
+    showToast('Photo analysis failed: ' + e.message, 'error');
+    resumeFromPhoto(prevState); // always resume mic even on failure
+  }
+}
+
+function resumeFromPhoto(prevState) {
+  document.getElementById('photo-banner').style.display = 'none';
+  isMuted = false;
+  document.getElementById('mute-btn').textContent = '🔇 Mute';
+  document.getElementById('mute-btn').classList.remove('muted');
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    setCircleState('CONNECTED');
+  } else {
+    setCircleState('DISCONNECTED');
+  }
+}
+
+// ═══════════════════════════════════════
+// ══════ PRACTICE MODE ══════════════════
+// ═══════════════════════════════════════
+let pmQuestions      = [];
+let pmStatuses       = {};
+let pmQueue          = [];
+let pmCurrentIndex   = 0;
+let pmCycleNum       = 1;
+let pmAttemptCount   = {};
+let pmStartTime      = null;
+let pmAbortController = null;
+let pmRecognition    = null;
+let pmQSourcePhotos  = [];
+let pmQSourceText    = '';
+let pmSessionActive  = false;
+let pmAutoAdvTimer   = null;
+
+const PM_TYPE_COLORS = { true_false:'#3b82f6', short_answer:'#8b5cf6', long_answer:'#92400e', fill_blank:'#f97316', multi_part:'#ef4444' };
+const PM_TYPE_LABELS = { true_false:'🔵 True/False', short_answer:'🟣 Short Answer', long_answer:'🟤 Long Answer', fill_blank:'🟠 Fill in Blank', multi_part:'🔴 Multi-Part' };
+
+function pmRefreshChapterStatus() {
+  const box = document.getElementById('pm-chapter-status-box');
+  if (chapterText && chapterText.trim().length > 0) {
+    box.className = 'pm-chapter-status ok';
+    box.textContent = '✅ Chapter loaded — ~' + wordCount(chapterText) + ' words ready for practice.';
+    document.getElementById('pm-start-btn').disabled = false;
+  } else {
+    box.className = 'pm-chapter-status';
+    box.textContent = '⚠️ No chapter loaded. Please load a chapter in the Live Reading tab first.';
+    document.getElementById('pm-start-btn').disabled = true;
+  }
+}
+
+function pmCheckResume() {
+  if (pmSessionActive) return;
+  const saved = localStorage.getItem('pm_questions');
+  const savedStatus = localStorage.getItem('pm_statuses');
+  if (!saved || !savedStatus) return;
+  if (!chapterText || chapterText.trim().length === 0) return;
+  try {
+    const qs = JSON.parse(saved);
+    if (!Array.isArray(qs) || qs.length === 0) return;
+    document.getElementById('pm-resume-overlay').classList.add('open');
+  } catch(e) {}
+}
+
+function pmResumeSession() {
+  document.getElementById('pm-resume-overlay').classList.remove('open');
+  try {
+    pmQuestions    = JSON.parse(localStorage.getItem('pm_questions') || '[]');
+    pmStatuses     = JSON.parse(localStorage.getItem('pm_statuses') || '{}');
+    pmCycleNum     = parseInt(localStorage.getItem('pm_cycle') || '1');
+    pmCurrentIndex = parseInt(localStorage.getItem('pm_index') || '0');
+    pmAttemptCount = {};
+    pmStartTime    = Date.now();
+    pmAbortController = new AbortController();
+    pmQueue = pmQuestions.filter(q => { const s = pmStatuses[q.id]; return !s || s.status !== 'green'; });
+    if (pmCurrentIndex >= pmQueue.length) pmCurrentIndex = 0;
+    pmShowSessionView();
+    pmDisplayCurrentQuestion();
+  } catch(e) {
+    showToast('Could not resume — starting fresh.', 'error');
+    pmDiscardResume();
+  }
+}
+
+function pmDiscardResume() {
+  document.getElementById('pm-resume-overlay').classList.remove('open');
+  localStorage.removeItem('pm_questions');
+  localStorage.removeItem('pm_statuses');
+  localStorage.removeItem('pm_cycle');
+  localStorage.removeItem('pm_index');
+}
+
+function pmSaveState() {
+  localStorage.setItem('pm_questions', JSON.stringify(pmQuestions));
+  localStorage.setItem('pm_statuses',  JSON.stringify(pmStatuses));
+  localStorage.setItem('pm_cycle',     String(pmCycleNum));
+  localStorage.setItem('pm_index',     String(pmCurrentIndex));
+}
+
+async function pmHandleQPdf(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (typeof pdfjsLib === 'undefined') { showToast('PDF.js not loaded.','error'); return; }
+  const status = document.getElementById('pm-extract-status');
+  status.textContent = 'Reading PDF…';
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(s=>s.str).join(' ') + '\n';
+    }
+    pmQSourceText = text.trim();
+    status.textContent = `PDF loaded — ${pdf.numPages} page(s), ~${wordCount(pmQSourceText)} words.`;
+    document.getElementById('pm-extract-btn').style.display = 'block';
+    showToast('Question PDF loaded ✓','success');
+  } catch(e) {
+    status.textContent = 'Failed to read PDF.';
+    showToast('PDF error: ' + e.message,'error');
+  }
+  event.target.value = '';
+}
+
+function pmHandleQPhotos(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      pmQSourcePhotos.push({dataUrl: e.target.result, mimeType: file.type});
+      pmRenderQThumbs();
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+  document.getElementById('pm-extract-btn').style.display = 'block';
+}
+
+function pmRenderQThumbs() {
+  const container = document.getElementById('pm-q-thumbs');
+  container.innerHTML = '';
+  pmQSourcePhotos.forEach((p, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    const img = document.createElement('img');
+    img.src = p.dataUrl;
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-label';
+    lbl.textContent = 'Q' + (i+1);
+    const del = document.createElement('button');
+    del.className = 'thumb-del';
+    del.textContent = '✕';
+    del.onclick = () => pmRemoveQPhoto(i);
+    wrap.appendChild(img); wrap.appendChild(lbl); wrap.appendChild(del);
+    container.appendChild(wrap);
+  });
+}
+
+function pmRemoveQPhoto(idx) {
+  pmQSourcePhotos.splice(idx, 1);
+  pmRenderQThumbs();
+  if (pmQSourcePhotos.length === 0 && !pmQSourceText) document.getElementById('pm-extract-btn').style.display = 'none';
+}
+
+let pmGenCount = 5;
+let pmGenTypes = ['true_false', 'short_answer', 'fill_blank'];
+
+function pmSetGenCount(btn) {
+  document.querySelectorAll('.pm-count-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  pmGenCount = parseInt(btn.dataset.count);
+}
+
+function pmSyncGenTypes() {
+  pmGenTypes = [];
+  if (document.getElementById('gen-type-tf')?.checked) pmGenTypes.push('true_false');
+  if (document.getElementById('gen-type-sa')?.checked) pmGenTypes.push('short_answer');
+  if (document.getElementById('gen-type-la')?.checked) pmGenTypes.push('long_answer');
+  if (document.getElementById('gen-type-fb')?.checked) pmGenTypes.push('fill_blank');
+  document.getElementById('gen-type-warning').style.display = pmGenTypes.length === 0 ? 'block' : 'none';
+}
+
+const pmTypeLabels = {
+  true_false: 'True/False (student answers True or False and gives a reason)',
+  short_answer: 'Short Answer (1-2 sentence answer expected)',
+  long_answer: 'Long Answer (detailed paragraph answer expected)',
+  fill_blank: 'Fill in the Blank (write a sentence with _____ where a key word is missing)'
+};
+
+async function pmGenerateQuestions() {
+  if (!chapterText) { showToast('Load a chapter in Live Reading tab first.','error'); return; }
+  pmSyncGenTypes();
+  if (pmGenTypes.length === 0) { document.getElementById('gen-type-warning').style.display = 'block'; showToast('Select at least one question type.','error'); return; }
+  const btn = document.getElementById('pm-generate-btn');
+  const status = document.getElementById('pm-generate-status');
+  btn.disabled = true;
+  status.innerHTML = '<span class="pm-spinner"></span>Generating ' + pmGenCount + ' questions…';
+
+  const typeInstructions = pmGenTypes.map(t => `- ${pmTypeLabels[t]}`).join('\n');
+  const typeValues = pmGenTypes.join(', ');
+  const prompt = `You are an expert teacher for Class ${currentClass} students.
+Read the chapter text below and generate exactly ${pmGenCount} important questions that test key understanding.
+QUESTION TYPES TO USE (distribute evenly across these types):
+${typeInstructions}
+Rules:
+- For fill_blank: write the full sentence with _____ where the key word is missing.
+- For true_false: make a statement that is clearly true or false based on the chapter.
+- Only use question types listed above. Do NOT use any other type.
+- Spread questions evenly — if ${pmGenCount} questions and ${pmGenTypes.length} type(s), generate roughly ${Math.ceil(pmGenCount/pmGenTypes.length)} of each.
+Return ONLY a JSON array, no explanation, no markdown:
+[{"id":1,"type":"${pmGenTypes[0]}","question":"...","sub_questions":[]}]
+Allowed type values: ${typeValues}
+CHAPTER TEXT:
+${chapterText.slice(0, 8000)}`;
+
+  try {
+    const raw = await pmCallLLM(prompt);
+    const parsed = pmParseQuestionsJSON(raw);
+    if (!parsed || parsed.length === 0) throw new Error('No questions returned.');
+    const existing = pmQuestions.length;
+    pmQuestions = [...pmQuestions, ...parsed.map((q, i) => ({
+      id: existing + i + 1,
+      type: pmGenTypes.includes(q.type) ? q.type : pmGenTypes[0],
+      question: q.question || '',
+      sub_questions: Array.isArray(q.sub_questions) ? q.sub_questions : []
+    }))];
+    status.textContent = `✅ ${parsed.length} questions generated and added to review list.`;
+    pmRenderReviewList();
+    document.getElementById('pm-review-panel').style.display = 'block';
+    showToast(`${parsed.length} questions generated ✓`, 'success');
+  } catch(e) {
+    status.textContent = 'Generation failed: ' + e.message.split('.')[0];
+    showToast('Could not generate questions. Try again.', 'error');
+  }
+  btn.disabled = false;
+}
+
+function pmToggleExportMenu() {
+  const menu = document.getElementById('pm-export-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  setTimeout(() => document.addEventListener('click', function h(e) {
+    if (!document.getElementById('pm-export-wrap').contains(e.target)) {
+      menu.style.display = 'none';
+      document.removeEventListener('click', h);
+    }
+  }), 0);
+}
+
+const pmTypeNames = { true_false:'True/False', short_answer:'Short Answer', long_answer:'Long Answer', fill_blank:'Fill in the Blank', multi_part:'Multi-Part' };
+
+function pmExport(format) {
+  document.getElementById('pm-export-menu').style.display = 'none';
+  if (!pmQuestions.length) { showToast('No questions to export.','error'); return; }
+  if (format === 'txt') {
+    const lines = ['ReadingBuddy — Question Set', '='.repeat(40), ''];
+    pmQuestions.forEach((q, i) => {
+      lines.push(`Q${i+1}. [${pmTypeNames[q.type] || q.type}]`);
+      lines.push(q.question);
+      if (q.sub_questions?.length) q.sub_questions.forEach((s, j) => lines.push(`   ${String.fromCharCode(97+j)}) ${s}`));
+      lines.push('');
+    });
+    pmDownload(new Blob([lines.join('\n')], {type:'text/plain'}), 'questions.txt');
+  } else if (format === 'print') {
+    const html = `<!DOCTYPE html><html><head><title>Question Set</title><style>body{font-family:sans-serif;max-width:700px;margin:40px auto;color:#111}h1{font-size:1.3rem;margin-bottom:24px}.q{margin-bottom:20px}.type{font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:4px}.text{font-size:1rem;line-height:1.6}.sub{margin-left:20px;color:#374151}</style></head><body><h1>📚 Question Set</h1>${pmQuestions.map((q,i)=>`<div class="q"><div class="type">Q${i+1} · ${pmTypeNames[q.type]||q.type}</div><div class="text">${escHtml(q.question)}</div>${q.sub_questions?.length?'<div class="sub">'+q.sub_questions.map((s,j)=>`${String.fromCharCode(97+j)}) ${escHtml(typeof s==='string'?s:s.question||'')}`).join('<br>')+'</div>':''}</div>`).join('')}</body></html>`;
+    const w = window.open('','_blank'); if (w) { w.document.write(html); w.document.close(); w.print(); }
+  } else if (format === 'copy') {
+    const lines = pmQuestions.map((q,i)=>`Q${i+1}. [${pmTypeNames[q.type]||q.type}] ${q.question}`+(q.sub_questions?.length?'\n'+q.sub_questions.map((s,j)=>`   ${String.fromCharCode(97+j)}) ${typeof s==='string'?s:s.question||''}`).join('\n'):'')).join('\n\n');
+    navigator.clipboard.writeText(lines).then(()=>showToast('Copied ✓','success')).catch(()=>showToast('Copy failed.','error'));
+  }
+}
+
+function pmDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function pmParseQuestionsJSON(raw) {
+  if (!raw) return null;
+  let s = raw.trim().replace(/```(?:json)?\s*/gi,'').replace(/```/g,'').trim();
+  try { const r = JSON.parse(s); if (Array.isArray(r) && r.length) return r; } catch(_) {}
+  const arrMatch = s.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { const r = JSON.parse(arrMatch[0]); if (Array.isArray(r) && r.length) return r; } catch(_) {} }
+  const objMatches = [...s.matchAll(/\{[\s\S]*?\}/g)];
+  if (objMatches.length) { try { const arr = objMatches.map(m => JSON.parse(m[0])).filter(o => o.question); if (arr.length) return arr; } catch(_) {} }
+  return null;
+}
+
+async function pmExtractQuestions() {
+  if (!pmQSourceText && pmQSourcePhotos.length === 0) { showToast('Upload a questions PDF or photos first.','error'); return; }
+  const status = document.getElementById('pm-extract-status');
+  status.innerHTML = '<span class="pm-spinner"></span>Extracting questions…';
+  document.getElementById('pm-extract-btn').disabled = true;
+
+  const extractionPromptBase = `Extract all questions from the following content. Identify the question type for each:
+- true_false, short_answer, long_answer, fill_blank, multi_part
+For fill_blank questions, preserve the blank as _____
+Return ONLY a JSON array, no explanation, no markdown:
+[{"id":1,"type":"true_false","question":"...","sub_questions":[]},...]`;
+
+  try {
+    let rawResponse;
+    if (pmQSourcePhotos.length > 0) {
+      rawResponse = await pmCallLLMWithPhotos(extractionPromptBase, pmQSourcePhotos);
+    } else {
+      rawResponse = await pmCallLLM(extractionPromptBase + `\n\nCONTENT:\n${pmQSourceText}`);
+    }
+
+    let parsed = pmParseQuestionsJSON(rawResponse);
+    if (!parsed || parsed.length === 0) {
+      status.innerHTML = '<span class="pm-spinner"></span>Retrying with simplified prompt…';
+      const retryPrompt = `Look at this content and list ALL questions you can find.\nReturn ONLY this exact JSON format with no other text:\n[{"id":1,"type":"short_answer","question":"question text here","sub_questions":[]}]\nTypes: true_false, short_answer, long_answer, fill_blank, multi_part\nCONTENT:\n${pmQSourceText || '(see attached images)'}`;
+      const retryRaw = pmQSourcePhotos.length > 0 ? await pmCallLLMWithPhotos(retryPrompt, pmQSourcePhotos) : await pmCallLLM(retryPrompt);
+      parsed = pmParseQuestionsJSON(retryRaw);
+      if (!parsed || parsed.length === 0) throw new Error('Could not extract questions automatically. Please add them manually using the + Add Question button.');
+    }
+
+    pmQuestions = parsed.map((q, i) => ({
+      id: q.id || (i + 1),
+      type: q.type || 'short_answer',
+      question: q.question || '',
+      sub_questions: Array.isArray(q.sub_questions) ? q.sub_questions : [],
+    }));
+
+    status.textContent = `${pmQuestions.length} question(s) extracted.`;
+    pmRenderReviewList();
+    document.getElementById('pm-review-panel').style.display = 'block';
+    showToast(`${pmQuestions.length} questions extracted ✓`, 'success');
+  } catch(e) {
+    status.textContent = 'Extraction failed: ' + e.message + '. You can add questions manually.';
+    pmQuestions = [];
+    pmRenderReviewList();
+    document.getElementById('pm-review-panel').style.display = 'block';
+    showToast('Extraction failed — add questions manually.', 'error');
+  }
+  document.getElementById('pm-extract-btn').disabled = false;
+}
+
+function pmRenderReviewList() {
+  const list = document.getElementById('pm-review-list');
+  list.innerHTML = '';
+  if (pmQuestions.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:0.88rem;text-align:center;padding:12px;">No questions yet. Add some manually.</div>';
+    return;
+  }
+  pmQuestions.forEach((q, i) => {
+    const item = document.createElement('div');
+    item.className = 'pm-q-item';
+    item.id = 'pm-q-item-' + q.id;
+    const dot = document.createElement('div');
+    dot.className = 'pm-type-dot pm-type-' + (q.type || 'short_answer');
+    const body = document.createElement('div');
+    body.style.flex = '1';
+    const typeLabel = document.createElement('div');
+    typeLabel.className = 'pm-q-type-label';
+    typeLabel.textContent = PM_TYPE_LABELS[q.type] || q.type;
+    const text = document.createElement('div');
+    text.className = 'pm-q-text';
+    text.textContent = (i + 1) + '. ' + q.question;
+    const editArea = document.createElement('div');
+    editArea.className = 'pm-edit-area';
+    editArea.id = 'pm-edit-' + q.id;
+    editArea.innerHTML = `<textarea id="pm-edit-ta-${q.id}">${escHtml(q.question)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <select id="pm-edit-type-${q.id}" style="height:32px;border-radius:6px;border:1.5px solid var(--border);font-size:0.8rem;">
+          ${Object.entries(PM_TYPE_LABELS).map(([v,l]) => `<option value="${v}"${v===q.type?' selected':''}>${l}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="pmSaveEdit(${q.id})">Save</button>
+        <button class="btn btn-sm" onclick="pmCancelEdit(${q.id})">Cancel</button>
+      </div>`;
+    body.appendChild(typeLabel);
+    body.appendChild(text);
+    body.appendChild(editArea);
+    const actions = document.createElement('div');
+    actions.className = 'pm-q-actions';
+    actions.innerHTML = `<button class="btn btn-sm" onclick="pmStartEdit(${q.id})" title="Edit">✏️</button><button class="btn btn-sm" style="color:var(--red)" onclick="pmDeleteQuestion(${q.id})" title="Delete">🗑</button>`;
+    item.appendChild(dot); item.appendChild(body); item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+function pmStartEdit(id) { const area = document.getElementById('pm-edit-' + id); if (area) area.style.display = 'flex'; const ta = document.getElementById('pm-edit-ta-' + id); if (ta) { ta.focus(); ta.select(); } }
+function pmCancelEdit(id) { const area = document.getElementById('pm-edit-' + id); if (area) area.style.display = 'none'; }
+function pmSaveEdit(id) { const ta = document.getElementById('pm-edit-ta-' + id); const typeSel = document.getElementById('pm-edit-type-' + id); const q = pmQuestions.find(x => x.id === id); if (q && ta) { q.question = ta.value.trim(); q.type = typeSel ? typeSel.value : q.type; pmRenderReviewList(); } }
+function pmDeleteQuestion(id) { pmQuestions = pmQuestions.filter(q => q.id !== id); pmRenderReviewList(); }
+
+function pmShowAddForm() { document.getElementById('pm-add-form').style.display = 'flex'; document.getElementById('pm-add-text').focus(); }
+function pmCancelAddQuestion() { document.getElementById('pm-add-form').style.display = 'none'; document.getElementById('pm-add-text').value = ''; }
+function pmConfirmAddQuestion() {
+  const text = document.getElementById('pm-add-text').value.trim();
+  const type = document.getElementById('pm-add-type').value;
+  if (!text) { showToast('Please enter a question.','error'); return; }
+  const newId = pmQuestions.length > 0 ? Math.max(...pmQuestions.map(q => q.id)) + 1 : 1;
+  pmQuestions.push({ id: newId, type, question: text, sub_questions: [] });
+  pmRenderReviewList();
+  pmCancelAddQuestion();
+  document.getElementById('pm-review-panel').style.display = 'block';
+}
+
+function pmStartSession() {
+  if (!chapterText || chapterText.trim().length === 0) { showToast('Please load a chapter first.','error'); return; }
+  if (pmQuestions.length === 0) { showToast('Please add at least one question.','error'); return; }
+  pmStatuses = {}; pmAttemptCount = {}; pmCycleNum = 1; pmCurrentIndex = 0;
+  pmStartTime = Date.now();
+  pmAbortController = new AbortController();
+  pmQueue = [...pmQuestions];
+  pmSaveState();
+  pmShowSessionView();
+  pmDisplayCurrentQuestion();
+}
+
+function pmShowSessionView() {
+  pmSessionActive = true;
+  document.getElementById('pm-setup-view').style.display = 'none';
+  document.getElementById('pm-session-view').style.display = 'block';
+  document.getElementById('pm-passed-view').style.display = 'none';
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    document.getElementById('pm-text-answer-row').style.display = 'flex';
+    document.getElementById('pm-mic-btn').style.display = 'none';
+  }
+}
+
+function pmShowSetupView() {
+  pmSessionActive = false;
+  document.getElementById('pm-setup-view').style.display = 'block';
+  document.getElementById('pm-session-view').style.display = 'none';
+  document.getElementById('pm-passed-view').style.display = 'none';
+}
+
+function pmDisplayCurrentQuestion() {
+  if (pmCurrentIndex >= pmQueue.length) { pmEndCycle(); return; }
+  const q = pmQueue[pmCurrentIndex];
+  if (!pmStatuses[q.id]) pmStatuses[q.id] = { status: 'pending', marks: null, attempts: 0 };
+
+  document.getElementById('pm-result-card').style.display = 'none';
+  document.getElementById('pm-cycle-summary').style.display = 'none';
+  document.getElementById('pm-question-card').style.display = 'block';
+  document.getElementById('pm-cycle-badge').textContent = 'Cycle ' + pmCycleNum;
+  document.getElementById('pm-question-text').textContent = q.question;
+
+  const subDiv = document.getElementById('pm-sub-questions');
+  if (q.type === 'multi_part' && q.sub_questions && q.sub_questions.length > 0) {
+    subDiv.style.display = 'flex';
+    subDiv.innerHTML = q.sub_questions.map((sq, i) => `<div class="pm-sub-q">${String.fromCharCode(97+i)}) ${escHtml(typeof sq === 'string' ? sq : sq.question || '')}</div>`).join('');
+  } else {
+    subDiv.style.display = 'none'; subDiv.innerHTML = '';
+  }
+
+  document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+  document.getElementById('pm-live-transcript').textContent = '';
+  document.getElementById('pm-lang-warning').style.display = 'none';
+
+  pmUpdateTracker();
+  pmSaveState();
+
+  let spokenText = q.question;
+  if (q.type === 'fill_blank') spokenText = spokenText.replace(/_+/g, 'blank');
+  pmSpeak(spokenText);
+}
+
+function pmEndSession() {
+  if (!confirm('End this practice session?')) return;
+  window.speechSynthesis?.cancel();
+  if (pmAbortController) { pmAbortController.abort(); pmAbortController = null; }
+  if (pmRecognition) { pmRecognition._pmShouldEvaluate = false; try { pmRecognition.stop(); } catch(e) {} pmRecognition = null; }
+  if (pmAutoAdvTimer) { clearTimeout(pmAutoAdvTimer); pmAutoAdvTimer = null; }
+  pmSessionActive = false;
+  pmShowSetupView();
+  pmRefreshChapterStatus();
+}
+
+function pmBuildRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return null;
+  const rec = new SpeechRec();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = 'en-IN';
+  rec._pmFinalTranscript = '';
+
+  rec.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) rec._pmFinalTranscript += event.results[i][0].transcript;
+      else interim += event.results[i][0].transcript;
+    }
+    document.getElementById('pm-live-transcript').textContent = rec._pmFinalTranscript + interim;
+  };
+
+  rec.onend = () => {
+    if (!rec._pmShouldEvaluate) return;
+    rec._pmShouldEvaluate = false;
+    const answer = (rec._pmFinalTranscript || document.getElementById('pm-live-transcript').textContent).trim();
+    rec._pmFinalTranscript = '';
+    document.getElementById('pm-live-transcript').textContent = '';
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+    if (!answer) return;
+    if (isNonEnglish(answer)) { document.getElementById('pm-lang-warning').style.display = 'block'; return; }
+    pmEvaluateAnswer(answer);
+  };
+
+  rec.onerror = (e) => {
+    rec._pmFinalTranscript = '';
+    rec._pmShouldEvaluate = false;
+    if (e.error !== 'aborted' && e.error !== 'no-speech') showToast('Speech error: ' + e.error, 'error');
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+  };
+
+  return rec;
+}
+
+function pmStartListening(e) {
+  if (e) e.preventDefault();
+  if (!pmSessionActive) return;
+  window.speechSynthesis?.cancel();
+  document.getElementById('pm-live-transcript').textContent = '';
+  document.getElementById('pm-lang-warning').style.display = 'none';
+  if (!pmRecognition) pmRecognition = pmBuildRecognition();
+  if (!pmRecognition) { document.getElementById('pm-text-answer-row').style.display = 'flex'; return; }
+  pmRecognition.lang = 'en-IN';
+  // Reset accumulated transcript for this new listening session
+  pmRecognition._pmFinalTranscript = '';
+  try { pmRecognition.start(); } catch(_) {}
+  document.getElementById('pm-mic-btn').className = 'pm-mic-btn listening';
+}
+
+function pmStopListening(e) {
+  if (e) e.preventDefault();
+  if (!pmRecognition) return;
+  pmRecognition._pmShouldEvaluate = true;
+  try { pmRecognition.stop(); } catch(_) {}
+}
+
+function pmSubmitTextAnswer() {
+  const inp = document.getElementById('pm-text-answer');
+  const answer = inp.value.trim();
+  inp.value = '';
+  if (!answer) return;
+  if (isNonEnglish(answer)) { document.getElementById('pm-lang-warning').style.display = 'block'; return; }
+  pmEvaluateAnswer(answer);
+}
+
+async function pmEvaluateAnswer(answer) {
+  if (!pmSessionActive || pmCurrentIndex >= pmQueue.length) return;
+  const q = pmQueue[pmCurrentIndex];
+  if (!pmAttemptCount[q.id]) pmAttemptCount[q.id] = 0;
+
+  document.getElementById('pm-mic-btn').className = 'pm-mic-btn thinking';
+  document.getElementById('pm-live-transcript').textContent = '⏳ Evaluating…';
+
+  const systemPrompt = `You are an examiner evaluating a student's answer.
+The student is in Class ${currentClass}.
+Evaluate ONLY based on the chapter text provided.
+Return ONLY valid JSON, no explanation outside JSON.`;
+
+  const subQText = (q.type === 'multi_part' && q.sub_questions && q.sub_questions.length > 0) ? '\nSUB-QUESTIONS: ' + JSON.stringify(q.sub_questions) : '';
+  const userPrompt = `CHAPTER TEXT:
+---
+${chapterText.slice(0, 8000)}
+---
+QUESTION TYPE: ${q.type}
+QUESTION: ${q.question}${subQText}
+STUDENT'S ANSWER: ${answer}
+
+Marking: 5=Perfect, 4=Good minor omission, 3=Partial, 2=Vague, 1=Mostly wrong, 0=Wrong
+For true_false: 5 if correct+reason, 3 if correct no reason, 0 if wrong.
+For fill_blank: accept just missing words, correct verb form required.
+For multi_part: average sub-questions.
+If answer in non-English: marks=0, feedback="Please answer in English only."
+
+Return ONLY: {"marks":4,"feedback":"...","correct_answer":"..."}`;
+
+  try {
+    if (!pmAbortController || pmAbortController.signal.aborted) pmAbortController = new AbortController();
+    const raw = await pmCallLLM(userPrompt, systemPrompt);
+    let jsonStr = raw.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    let result;
+    try { result = JSON.parse(jsonStr); } catch(je) {
+      const m = jsonStr.match(/\{[\s\S]*\}/);
+      if (m) result = JSON.parse(m[0]); else throw new Error('Invalid JSON from evaluator');
+    }
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+    document.getElementById('pm-live-transcript').textContent = '';
+    pmHandleResult(q, result);
+  } catch(err) {
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+    document.getElementById('pm-live-transcript').textContent = '';
+    if (err.name === 'AbortError') return;
+    showToast('Evaluation error: ' + (err.message||'').split('.')[0] + '. Try again.', 'error');
+  }
+}
+
+function pmHandleResult(q, result) {
+  const marks = Math.max(0, Math.min(5, parseInt(result.marks) || 0));
+  const feedback = result.feedback || '';
+  const correctAnswer = result.correct_answer || '';
+
+  if (marks === 0 && feedback.toLowerCase().includes('english only')) {
+    document.getElementById('pm-lang-warning').style.display = 'block';
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+    return;
+  }
+
+  pmAttemptCount[q.id] = (pmAttemptCount[q.id] || 0) + 1;
+  const attempts = pmAttemptCount[q.id];
+  pmShowResultCard(marks, feedback, correctAnswer, q, attempts);
+}
+
+function pmShowResultCard(marks, feedback, correctAnswer, q, attempts) {
+  document.getElementById('pm-question-card').style.display = 'block';
+  const card = document.getElementById('pm-result-card');
+  card.style.display = 'block';
+
+  const starsFull = Math.round(marks);
+  document.getElementById('pm-stars').textContent = '⭐'.repeat(starsFull) + '☆'.repeat(5 - starsFull);
+  document.getElementById('pm-marks-text').textContent = marks + ' / 5';
+  document.getElementById('pm-feedback-text').textContent = feedback;
+
+  const hintBox = document.getElementById('pm-hint-box');
+  const correctBox = document.getElementById('pm-correct-answer');
+  hintBox.style.display = 'none';
+  correctBox.style.display = 'none';
+
+  if (marks >= 4) {
+    // Green threshold = 4
+    pmStatuses[q.id] = { status: 'green', marks, attempts };
+    pmSaveState(); pmUpdateTracker();
+    pmSpeak('Well done! ' + feedback);
+    pmAutoAdvTimer = setTimeout(() => pmMoveToNext(), 2000);
+  } else if (attempts < 3) {
+    // Max 3 attempts — still has tries left
+    pmStatuses[q.id] = { status: 'red', marks, attempts };
+    pmSaveState(); pmUpdateTracker();
+    const hint = correctAnswer ? correctAnswer.split(/\s+/).slice(0, 10).join(' ') + (correctAnswer.split(/\s+/).length > 10 ? '…' : '') : '';
+    if (hint) { hintBox.style.display = 'block'; hintBox.textContent = attempts === 1 ? '💡 Hint: ' + hint : '💡 Broader hint: ' + (correctAnswer.split(/\s+/).slice(0, 20).join(' ') + '…'); }
+    pmSpeak(feedback + '. Try again.');
+  } else {
+    // 3 attempts exhausted → show answer and move on
+    pmStatuses[q.id] = { status: 'orange', marks, attempts };
+    pmSaveState(); pmUpdateTracker();
+    correctBox.style.display = 'block';
+    correctBox.textContent = '✅ Correct answer: ' + correctAnswer;
+    pmSpeak(feedback + '. The correct answer is: ' + correctAnswer + '. Let us move on.');
+    pmAutoAdvTimer = setTimeout(() => pmMoveToNext(), 3000);
+  }
+}
+
+function pmMoveToNext() {
+  if (pmAutoAdvTimer) { clearTimeout(pmAutoAdvTimer); pmAutoAdvTimer = null; }
+  if (pmCurrentIndex >= pmQueue.length) return;
+  const q = pmQueue[pmCurrentIndex];
+  const status = pmStatuses[q.id]?.status;
+  if (status === 'red' && (pmAttemptCount[q.id] || 0) < 3) {
+    document.getElementById('pm-result-card').style.display = 'none';
+    let spokenText = q.question;
+    if (q.type === 'fill_blank') spokenText = spokenText.replace(/_+/g, 'blank');
+    pmSpeak(spokenText);
+    document.getElementById('pm-mic-btn').className = 'pm-mic-btn idle';
+    document.getElementById('pm-live-transcript').textContent = '';
+    return;
+  }
+  pmCurrentIndex++;
+  pmSaveState();
+  if (pmCurrentIndex >= pmQueue.length) pmEndCycle();
+  else pmDisplayCurrentQuestion();
+}
+
+function pmSkip() {
+  // Abort TTS and in-flight API call
+  window.speechSynthesis?.cancel();
+  if (pmAbortController) { pmAbortController.abort(); pmAbortController = new AbortController(); }
+  if (pmRecognition) { pmRecognition._pmShouldEvaluate = false; try { pmRecognition.stop(); } catch(e) {} }
+  if (pmAutoAdvTimer) { clearTimeout(pmAutoAdvTimer); pmAutoAdvTimer = null; }
+  if (pmCurrentIndex < pmQueue.length) {
+    const q = pmQueue[pmCurrentIndex];
+    pmStatuses[q.id] = { status: 'skipped', marks: null, attempts: pmAttemptCount[q.id] || 0 };
+    pmSaveState(); pmUpdateTracker();
+  }
+  pmCurrentIndex++;
+  pmSaveState();
+  if (pmCurrentIndex >= pmQueue.length) pmEndCycle();
+  else { document.getElementById('pm-result-card').style.display = 'none'; pmDisplayCurrentQuestion(); }
+}
+
+function pmEndCycle() {
+  document.getElementById('pm-question-card').style.display = 'none';
+  document.getElementById('pm-result-card').style.display = 'none';
+
+  const greenCount   = pmQuestions.filter(q => pmStatuses[q.id]?.status === 'green').length;
+  const redCount     = pmQuestions.filter(q => pmStatuses[q.id]?.status === 'red').length;
+  const orangeCount  = pmQuestions.filter(q => pmStatuses[q.id]?.status === 'orange').length;
+  const skippedCount = pmQuestions.filter(q => pmStatuses[q.id]?.status === 'skipped').length;
+
+  if (greenCount === pmQuestions.length) { pmShowPassed(); return; }
+
+  const summaryEl = document.getElementById('pm-cycle-summary');
+  summaryEl.style.display = 'block';
+  document.getElementById('pm-cycle-summary-title').textContent = `Cycle ${pmCycleNum} Complete!`;
+  document.getElementById('pm-cycle-stats').innerHTML = `
+    <div class="pm-stat"><div class="pm-stat-num" style="color:var(--green)">${greenCount}</div><div class="pm-stat-label">Correct ✅</div></div>
+    <div class="pm-stat"><div class="pm-stat-num" style="color:var(--red)">${redCount + orangeCount}</div><div class="pm-stat-label">Needs Review</div></div>
+    <div class="pm-stat"><div class="pm-stat-num" style="color:var(--grey)">${skippedCount}</div><div class="pm-stat-label">Skipped</div></div>
+    <div class="pm-stat"><div class="pm-stat-num">${pmQuestions.length}</div><div class="pm-stat-label">Total</div></div>`;
+  pmUpdateTracker();
+}
+
+function pmContinueCycle() {
+  document.getElementById('pm-cycle-summary').style.display = 'none';
+  pmCycleNum++; pmAttemptCount = {};
+  pmQueue = pmQuestions.filter(q => pmStatuses[q.id]?.status !== 'green');
+  pmQueue.forEach(q => { pmStatuses[q.id] = { status: 'pending', marks: null, attempts: 0 }; });
+  pmCurrentIndex = 0; pmSaveState();
+  if (pmQueue.length === 0) pmShowPassed();
+  else pmDisplayCurrentQuestion();
+}
+
+function pmShowPassed() {
+  document.getElementById('pm-session-view').style.display = 'none';
+  document.getElementById('pm-passed-view').style.display = 'block';
+  const elapsed = pmStartTime ? Math.floor((Date.now() - pmStartTime) / 1000) : 0;
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const perfectCount = pmQuestions.filter(q => pmStatuses[q.id]?.marks === 5).length;
+  document.getElementById('pm-passed-cycles').textContent = pmCycleNum;
+  document.getElementById('pm-passed-time').textContent = mins + ':' + String(secs).padStart(2,'0');
+  document.getElementById('pm-passed-perfect').textContent = perfectCount;
+  localStorage.removeItem('pm_questions'); localStorage.removeItem('pm_statuses');
+  localStorage.removeItem('pm_cycle'); localStorage.removeItem('pm_index');
+  pmSpeak(`Congratulations! You answered all ${pmQuestions.length} questions correctly in ${pmCycleNum} cycle${pmCycleNum > 1 ? 's' : ''}. Well done!`);
+}
+
+function pmRestartPractice() {
+  pmStatuses = {}; pmAttemptCount = {}; pmCycleNum = 1; pmCurrentIndex = 0;
+  pmStartTime = null; pmQueue = []; pmSessionActive = false;
+  document.getElementById('pm-passed-view').style.display = 'none';
+  document.getElementById('pm-setup-view').style.display = 'block';
+  pmRefreshChapterStatus();
+  if (pmQuestions.length > 0) { pmRenderReviewList(); document.getElementById('pm-review-panel').style.display = 'block'; }
+}
+
+function pmUpdateTracker() {
+  const greenCount = pmQuestions.filter(q => pmStatuses[q.id]?.status === 'green').length;
+  const total = pmQuestions.length;
+  const pct = total > 0 ? Math.round((greenCount / total) * 100) : 0;
+  const progressLabel = `${greenCount}/${total} ✅`;
+  document.getElementById('pm-tracker-progress-label').textContent = progressLabel;
+  document.getElementById('pm-tracker-toggle-label').textContent = 'Progress: ' + progressLabel;
+  document.getElementById('pm-progress-bar-desktop').style.width = pct + '%';
+  document.getElementById('pm-progress-bar-mobile').style.width = pct + '%';
+
+  const currentQId = pmQueue[pmCurrentIndex]?.id;
+  ['desktop','mobile'].forEach(suffix => {
+    const listEl = document.getElementById('pm-tracker-list-' + suffix);
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    pmQuestions.forEach((q, i) => {
+      const s = pmStatuses[q.id] || {};
+      const status = s.status || 'pending';
+      const isCurrent = q.id === currentQId;
+      const item = document.createElement('div');
+      item.className = 'pm-tracker-item ' + (isCurrent ? 'current' : status);
+      const dot = document.createElement('div');
+      dot.className = 'pm-tracker-dot ' + status;
+      const num = document.createElement('div');
+      num.className = 'pm-tracker-qnum';
+      num.textContent = 'Q' + (i + 1);
+      const info = document.createElement('div');
+      info.className = 'pm-tracker-info';
+      info.textContent = q.question.slice(0, 28) + (q.question.length > 28 ? '…' : '');
+      info.title = q.question;
+      const marksEl = document.createElement('div');
+      marksEl.className = 'pm-tracker-marks';
+      if (s.marks !== null && s.marks !== undefined) marksEl.textContent = s.marks + '/5';
+      item.appendChild(dot); item.appendChild(num); item.appendChild(info); item.appendChild(marksEl);
+      listEl.appendChild(item);
+    });
+  });
+}
+
+function pmToggleMobileTracker() {
+  const el = document.getElementById('pm-tracker-mobile');
+  const arrow = document.getElementById('pm-tracker-toggle-arrow');
+  el.classList.toggle('open');
+  arrow.textContent = el.classList.contains('open') ? '▲' : '▼';
+}
+
+function pmSpeak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const clean = stripMarkdown(text);
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = 'en-IN';
+  utter.rate = speechRate;
+  utter.pitch = 1.05;
+  const voices = window.speechSynthesis.getVoices();
+  const v = voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
+  if (v) utter.voice = v;
+  window.speechSynthesis.speak(utter);
+}
+
+// ── pmCallLLM — Gemini REST (uses same API key as Live session) ──
+async function pmCallLLM(prompt, systemOverride) {
+  const key = localStorage.getItem('rb_gemini-key');
+  if (!key) throw new Error('No Gemini API key. Add it in Settings ⚙');
+  const sysText = systemOverride || 'You are a helpful assistant. Return only what is asked.';
+  const body = {
+    contents: [{role:'user', parts:[{text: prompt}]}],
+    systemInstruction: {parts:[{text: sysText}]}
+  };
+  const signal = pmAbortController ? pmAbortController.signal : undefined;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${pmCurrentModel}:generateContent?key=${key}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), signal}
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+    if (res.status === 429) throw new Error('Quota exceeded (429). Please wait and try again.');
+    throw new Error(err.error?.message || 'Gemini API error ' + res.status);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+async function pmCallLLMWithPhotos(prompt, photos) {
+  const key = localStorage.getItem('rb_gemini-key');
+  if (!key) throw new Error('No Gemini API key. Add it in Settings ⚙');
+  const parts = [{text: prompt}];
+  photos.forEach(p => parts.push({inlineData:{mimeType:p.mimeType, data:p.dataUrl.split(',')[1]}}));
+  const body = {
+    contents:[{role:'user', parts}],
+    systemInstruction:{parts:[{text:'You are a helpful assistant. Return only what is asked.'}]}
+  };
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${pmCurrentModel}:generateContent?key=${key}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+  );
+  if (!res.ok) { const e = await res.json().catch(()=>({error:{message:res.statusText}})); throw new Error(e.error?.message || 'Gemini error ' + res.status); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// ── Non-English detection ──
+function isNonEnglish(text) {
+  if (!text || text.length < 3) return false;
+  const nonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
+  return nonAscii / text.length > 0.3;
+}
+</script>
+</body>
+</html>
