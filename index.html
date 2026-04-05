@@ -1662,6 +1662,7 @@
       <div id="st-hindi" class="story-hindi" style="display:none;"></div>
     </div>
     <div class="story-controls">
+      <button onclick="stFirst()" title="Go to first sentence" style="font-size:0.75rem;padding:0 10px;">1st</button>
       <button onclick="stPrev()" title="Previous">⏮</button>
       <button onclick="stRepeat()" title="Repeat">🔁</button>
       <button id="st-play-btn" onclick="stPlayPause()">▶</button>
@@ -3476,6 +3477,16 @@ function stRepeat() {
     document.getElementById('st-play-btn').textContent = '⏸';
     stSpeak();
   }
+}
+
+function stFirst() {
+  if (!stInit()) return;
+  speechSynthesis.cancel();
+  if (stAbort) { stAbort.abort(); stAbort = null; }
+  stPlaying = false;
+  stIndex = 0;
+  stRender();
+  document.getElementById('st-play-btn').textContent = '▶';
 }
 
 function stPrev() {
