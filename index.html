@@ -1670,6 +1670,7 @@
     <div class="story-options">
       <label><input type="checkbox" id="st-read-eng"> Read English aloud first</label>
       <label><input type="checkbox" id="st-auto-adv" checked> Auto-advance</label>
+      <label style="display:flex;align-items:center;gap:6px;">Speed <input type="range" id="st-speed" min="0.5" max="1.5" step="0.1" value="1" style="width:80px;" oninput="document.getElementById('st-speed-val').textContent=parseFloat(this.value).toFixed(1)+'×'"> <span id="st-speed-val">1.0×</span></label>
     </div>
   </div>
 </div>
@@ -3308,7 +3309,7 @@ async function stWordHover(el) {
   box.innerHTML = `<span class="st-wb-word">${escHtml(el.dataset.raw)}</span><span class="st-wb-loading">Looking up…</span>`;
 
   try {
-    const sys = `You are a vocabulary helper for a Class ${currentClass} student. Give the Hindi meaning of the English word in one short line. Format: "Hindi meaning — brief English note". No extra text.`;
+    const sys = `You are a vocabulary helper for a Class ${currentClass} student. Give the meaning of the English word in one short line. Format: "Hindi meaning (English meaning)". No extra text.`;
     const ctx = stSentences[stIndex] ? `Sentence context: "${stSentences[stIndex]}"` : '';
     const meaning = await callLLMText(sys, `Word: "${word}"\n${ctx}`, null);
     stWordCache[word] = meaning;
@@ -3340,7 +3341,7 @@ async function stGetHindi(index) {
   stAbort = new AbortController();
   try {
     const classInstr = getClassInstruction();
-    const sys = `You are ReadingBuddy, a Hindi-speaking tutor for a Class ${currentClass} student.\nExplain the following English sentence in simple Hindi in 2–3 sentences. Use words a ${currentClass}-year-old would understand. Return only the Hindi explanation, nothing else.\n\nChapter context:\n${chapterText.slice(0, 3000)}`;
+    const sys = `You are a translator. Translate the following English sentence into Hindi. The translation must match the original sentence exactly — same meaning, same length, no additions or elaborations. Return only the Hindi translation, nothing else.`;
     const userMsg = `Sentence: "${sentence}"`;
     const text = await callLLMText(sys, userMsg, stAbort.signal);
     stCache[index] = text;
@@ -3398,7 +3399,7 @@ async function stSpeak() {
   if (readEng) {
     await new Promise(resolve => {
       const u = new SpeechSynthesisUtterance(stSentences[stIndex]);
-      u.lang = 'en-IN'; u.rate = 0.92;
+      u.lang = 'en-IN'; u.rate = 0.92 * parseFloat(document.getElementById('st-speed').value);
       u.onend = resolve; u.onerror = resolve;
       speechSynthesis.speak(u);
       stUtterance = u;
@@ -3418,7 +3419,7 @@ async function stSpeak() {
   // Speak Hindi
   await new Promise(resolve => {
     const u = new SpeechSynthesisUtterance(hindi);
-    u.lang = 'hi-IN'; u.rate = 0.88;
+    u.lang = 'hi-IN'; u.rate = 0.88 * parseFloat(document.getElementById('st-speed').value);
     const voices = speechSynthesis.getVoices();
     const hiVoice = voices.find(v => v.lang === 'hi-IN') || voices.find(v => v.lang.startsWith('hi'));
     if (hiVoice) u.voice = hiVoice;
